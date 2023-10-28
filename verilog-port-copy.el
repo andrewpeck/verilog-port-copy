@@ -9,77 +9,64 @@
 (require 'vhdl-mode)
 (require 'cl-lib)
 
-(defun align-paren (start end)
+(defun verilog--align-paren (start end)
   "Align columns by ampersand"
   (interactive "r")
   (align-regexp start end
                 "\\(\\s-*\\)(" 1 1 nil))
 
-(defun verilog-align-ports ()
+(defun verilog--align-ports ()
   (interactive)
   (save-excursion
     (beginning-of-line)
     (er/expand-region 2)
-    (align-paren (region-beginning) (region-end))))
+    (verilog--align-paren (region-beginning) (region-end))))
 
-(defconst verilog-module-and-port-regexp
+(defconst verilog--module-and-port-regexp
   (concat "module\s+"
           "\\([A-z0-9_]+\\)"            ; module name
           "\\(\s+#([^)]*)\\)?"          ; verilog2001 style parameters #()
           "\s*(\\([^)]*\\))")           ; port list
   "Regexp to extract a module name and port list from a Verilog2001 style file.")
 
-(defconst verilog-module-regexp
-  "module\s+\\([A-z,0-9]+\\)"
+(defconst verilog--module-regexp
+  "module\s+\\([A-z0-9_]+\\)"
   "Regexp to extract a verilog module name.")
 
-(defun verilog-get-module-as-string ()
+(defun verilog--get-module-as-string ()
+
+  "Get a verilog module at point, return it as a string with comments and newlines removed."
 
   (save-excursion
-    (let* ((start (re-search-backward verilog-module-regexp))
+    (let* ((start (re-search-backward verilog--module-regexp))
            (end   (re-search-forward "endmodule")) ; FIXME: make sure this is not in a comment
            (module (buffer-substring-no-properties start end)))
 
       (setq module (replace-regexp-in-string "\/\/.*\n" "" module))
       (setq module (replace-regexp-in-string "\n" " " module)) module)))
 
-(defun verilog-get-module-name ()
+(defun verilog--get-module-name ()
   "Get the name of the Verilog module at point in the currently opened buffer."
   (save-excursion
     (forward-line 1)
-    (when  (re-search-backward verilog-module-regexp)
+    (when  (re-search-backward verilog--module-regexp)
       (match-string-no-properties 1))))
-
-
-;;;-----------------------------------------------------------------------------
-;;; Top Level Port Copy Function
-;;;-----------------------------------------------------------------------------
-
-(defun verilog-port-copy ()
-  ""
-  (interactive)
-  (save-excursion ; Save point, and current buffer; execute BODY; restore those things.
-
-    (let* ((module (verilog-get-module-as-string))
-           (name (verilog-get-module-name))
-           (generic-list (verilog-parse-generics module))
-           (port-list (verilog-parse-ports module))
-           (context-clause nil))
-
-      (setq vhdl-port-list (list name generic-list port-list context-clause)
-            vhdl-port-reversed-direction nil
-            vhdl-port-flattened nil))))
 
 ;;;-----------------------------------------------------------------------------
 ;;; Parameters
 ;;;-----------------------------------------------------------------------------
 
-(defun verilog-parse-ansi-parameters (module)
-  "Placeholder for ANSI style parameter parsing"
-  ;; parse names (accept extended identifiers)
+(defun verilog--parse-ansi-parameters (module)
+
+  "Placeholder for ANSI style parameter parsing.
+
+Takes in a MODULE string.
+
+Not implemented yet."
+
   nil)
 
-(defun verilog-parse-nonansi-parameters (module)
+(defun verilog--parse-nonansi-parameters (module)
 
   "Gather up the non-ansi parameters in a Verilog MODULE string."
 
@@ -132,32 +119,46 @@
 
       parameters)))
 
-(defun verilog-parse-generics (module)
-  "Wrapper to gather up both ANSI and non-ANSI parameters into a list"
+(defun verilog--parse-generics (module)
 
-  (append (verilog-parse-nonansi-parameters module)
-          (verilog-parse-ansi-parameters module)))
+  "Return verilog parameters from a MODULE.
+
+A MODULE should be a string with the entire contents of the
+module with comments and newlines removed."
+
+  (append (verilog--parse-nonansi-parameters module)
+          (verilog--parse-ansi-parameters module)))
 
 
-(cl-defun format-port-list (name &key port-object port-direct
-                                 port-type port-comment group-comment)
+(cl-defun verilog--format-port-list (name &key port-object port-direct
+                                          port-type port-comment group-comment)
 
-  ;; " match to specified format, e.g.
+  "Format a port following the structure specified in vhdl-mode.el.
+
+Structure:
+   ((port-names) port-object port-direct port-type port-comment group-comment)
+
+    e.g ((\"qn_m2\") nil \"in\" \"\" nil \"\\n\")\"
+
+NAME is the name of the verilog module.
+
+PORT-OBJECT is ???
+
+PORT-DIRECT is a direction; in, out, or inout.
+
+PORT-TYPE is a string of something like std_logic_vector (9 downto 0)
+
+PORT-COMMENT is an optional comment string.
+
+GROUP-COMMENT is ???"
 
   (when (not group-comment)
     (setq group-comment ""))
 
-  ;; Structure:
-  ;;     ((port-names) port-object port-direct port-type port-comment group-comment)
-  ;; e.g (("qn_m2") nil "in" "std_logic_vector (9 downto 0)" nil "\n")"
-
   (list (list name) port-object port-direct port-type port-comment group-comment))
 
-;;;-----------------------------------------------------------------------------
-;;; Ports
-;;;-----------------------------------------------------------------------------
+(defun verilog--parse-ports (module)
 
-(defun verilog-parse-ports (module)
   ""
 
   (interactive)
@@ -188,15 +189,41 @@
                (bitrange (when bitstring (split-string bitstring "\\[\\|:\\|\\]" t)))
                (bithi  (when bitrange (car bitrange)))
                (bitlo (when bitrange (cadr bitrange)))
-               (port-entry (format-port-list name
-                                             :port-direct direction
-                                             :port-type
-                                             (if (and bithi bitlo) (format "std_logic_vector (%s downto %s)" bithi bitlo)
-                                               "std_logic"))))
+               (port-type (if (and bithi bitlo)
+                              (format "std_logic_vector (%s downto %s)" bithi bitlo)
+                            "std_logic"))
+               (port-entry (verilog--format-port-list name
+                                                      :port-direct direction
+                                                      :port-type port-type)))
           (add-to-list 'ports port-entry t))) ports)))
 
+;;-----------------------------------------------------------------------------
+;; Entrypoints
+;;-----------------------------------------------------------------------------
+
+;;;###autoload
+(defun verilog-port-copy ()
+
+  "Copy the verilog module at point and put its definition into `vhdl-port-list`."
+
+  (interactive)
+  (save-excursion ; Save point, and current buffer; execute BODY; restore those things.
+
+    (let* ((module (verilog--get-module-as-string))
+           (name (verilog--get-module-name))
+           (generic-list (verilog--parse-generics module))
+           (port-list (verilog--parse-ports module))
+           (context-clause nil))
+
+      (setq vhdl-port-list (list name generic-list port-list context-clause)
+            vhdl-port-reversed-direction nil
+            vhdl-port-flattened nil))))
+
+;;;###autoload
 (defun verilog-port-paste-instance ()
+
   "Paste as an Verilog instantiation."
+
   (interactive)
   (if (not vhdl-port-list)
       (error "ERROR:  No port read")
@@ -218,7 +245,7 @@
       (insert ")")
 
       ;; (beginning-of-line)
-      ;; (save-excursion (verilog-align-ports))
+      ;; (save-excursion (verilog--align-ports))
       ;; (end-of-line)
 
       ;; instance name
@@ -236,7 +263,8 @@
       (insert ");")
 
       (beginning-of-line)
-      (save-excursion (verilog-align-ports))
+      (save-excursion (verilog--align-ports))
       (end-of-line))))
 
 (provide 'verilog-port-copy)
+;;; verilog-port-copy.el ends here
