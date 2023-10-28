@@ -92,8 +92,7 @@
                 (concat
                  "parameter\s+" ;;
                  "\\([A-z,0-9]+\\)" ;; name
-                 "\s*;"
-                 ) nil t)
+                 "\s*;") nil t)
           (let ((name (match-string 1))
                 (val nil))
             (push-to-params name val)))
@@ -103,12 +102,12 @@
         (while (re-search-forward
                 (concat
                  "parameter\s+"     ;
-                 "\\([A-z,0-9]+\\)" ; name
+                 "\\([A-z,0-9_]+\\)" ; name
                  "\s*=\s*"          ;
-                 "\\([0-9]+\\)?"    ; number of bits
-                 "\\('[bdho]+\\)?"  ; radix
-                 "\\([0-9,A-z]+\\)" ; val
-                 "\s*               ;"
+                 "\\([A-z,0-9_]+\\)?"    ; number of bits
+                 "\\('[bdho]\\)?"  ; radix
+                 "\\([0-9,A-z,_]+\\)" ; val
+                 "\s*;"
                  ) nil t)
 
           ;; account for different radixes, 'h3 / 7'h3 / 3'b10001 etc.
@@ -135,7 +134,7 @@
 ;;; Ports
 ;;;-----------------------------------------------------------------------------
 
-(defun verilog-parse-ansi-ports (module)
+(defun verilog-parse-ports (module)
   ""
 
   (interactive)
@@ -162,13 +161,12 @@
                 (concat "\\(input\\|output\\)\s+"            ; direction
                         "\\(reg\\|logic\\|wire\\|var\s+\\)?" ; type
                         "\\([0-9,A-z,_]+\\)"                 ; name
-                        "\s*\\(,\\|)\\)"                     ; trailing comma or paren
+                        "\s*\\(,\\|)\\|;\\)"                 ; trailing comma or paren or semicolon
                         ) nil t 1)
           (let ((direction (match-string 1))
                 (name (match-string 3)))
 
             (push-to-ports name direction "std_logic")
-            ;; (message (format "%s : %s" name direction))
             (list name direction)))
 
         ;; get buses
@@ -180,17 +178,13 @@
                  "\\[\\([^]]+\\)\s*:"                 ; bit high
                  "\\([^]]\\)]\s*"                     ; bit low
                  "\\([0-9,A-z]+\\)"                   ; name
-                 "\s*\\(,\\|)\\)"                     ; trailing comma or paren
+                 "\s*\\(,\\|)\\|;\\)"                     ; trailing comma or paren
                  ) nil t 1)
           (let ((direction (match-string 1))
                 (bithi (match-string 3))
                 (bitlo (match-string 4))
                 (name (match-string 5)))
             (push-to-ports name direction (format "std_logic_vector (%s downto %s)" bithi bitlo))))) ports)))
-
-(defun verilog-parse-ports (module)
-  ""
-  (verilog-parse-ansi-ports module))
 
 (defun verilog-port-paste-instance ()
   "Paste as an Verilog instantiation."
@@ -205,23 +199,35 @@
       (insert " #(\n")
 
       ;; insert generics
-      (dolist (generic generics)
-        (let ((gname (caar generic)))
-          (insert (format "  .%s(%s)\n" gname gname))))
+      (when generics
+        (dolist (generic generics)
+          (let ((gname (caar generic)))
+            (insert (format "  .%s(%s),\n" gname gname))))
+        ;; remove the last comma and newline
+        (delete-char -2))
 
-      (verilog-align-ports)
+      (insert ")")
+
+      ;; (beginning-of-line)
+      ;; (save-excursion (verilog-align-ports))
+      ;; (end-of-line)
 
       ;; instance name
-      (insert (format ") u_%s (\n" module-name))
+      (insert (format "\nu_%s (\n" module-name))
 
       ;; insert ports
-      (dolist (port ports)
-        (let ((gname (caar port)))
-          (insert (format "  .%s(%s)\n" gname gname))))
-
-      (verilog-align-ports)
+      (when ports
+        (dolist (port ports)
+          (let ((gname (caar port)))
+            (insert (format "  .%s(%s),\n" gname gname))))
+        ;; remove the last comma and newline
+        (delete-char -2))
 
       ;; close
-      (insert ");"))))
+      (insert ");")
+
+      (beginning-of-line)
+      (save-excursion (verilog-align-ports))
+      (end-of-line))))
 
 (provide 'verilog-port-copy)
