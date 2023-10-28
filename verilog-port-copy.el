@@ -24,7 +24,7 @@
 
 (defconst verilog-module-and-port-regexp
   (concat "module\s+"
-          "\\([A-z,0-9]+\\)"            ; module name
+          "\\([A-z0-9_]+\\)"            ; module name
           "\\(\s+#([^)]*)\\)?"          ; verilog2001 style parameters #()
           "\s*(\\([^)]*\\))")           ; port list
   "Regexp to extract a module name and port list from a Verilog2001 style file.")
@@ -100,7 +100,7 @@
         (while (re-search-forward
                 (concat
                  "parameter\s+" ;;
-                 "\\([A-z,0-9]+\\)" ;; name
+                 "\\([A-z0-9]+\\)" ;; name
                  "\s*;") nil t)
           (let ((name (match-string 1))
                 (val nil))
@@ -111,11 +111,11 @@
         (while (re-search-forward
                 (concat
                  "parameter\s+"     ;
-                 "\\([A-z,0-9_]+\\)" ; name
+                 "\\([A-z0-9_]+\\)" ; name
                  "\s*=\s*"          ;
-                 "\\([A-z,0-9_]+\\)?"    ; number of bits
+                 "\\([A-z0-9_]+\\)?"    ; number of bits
                  "\\('[bdho]\\)?"  ; radix
-                 "\\([0-9,A-z,_]+\\)" ; val
+                 "\\([0-9A-z,_]+\\)" ; val
                  "\s*;"
                  ) nil t)
 
@@ -170,42 +170,30 @@
 
       (goto-char (point-min))
 
-      ;; TODO: comebine these regexps
-
-      ;; get std_logics
-      (while (re-search-forward
-              (concat "\\(input\\|output\\)\s+"            ; direction
-                      "\\(reg\\|logic\\|wire\\|var\s+\\)?" ; type
-                      "\\([0-9,A-z,_]+\\)"                 ; name
-                      "\s*\\(,\\|)\\|;\\)") nil t 1) ; trailing comma or paren or semicolon
-
-        (let* ((direction (match-string 1))
-               (name (match-string 3))
-               (port-entry
-                (format-port-list name
-                                  :port-direct direction
-                                  :port-type "std_logic")))
-          (push port-entry ports)))
-
       ;; get buses
       (goto-char (point-min))
-      (while (re-search-forward
-              (concat
-               "\\(input\\|output\\)\s+"            ; direction
-               "\\(reg\\|logic\\|wire\\|var\s+\\)?" ; type
-               "\\[\\([^]]+\\)\s*:"                 ; bit high
-               "\\([^]]\\)]\s*"                     ; bit low
-               "\\([0-9,A-z]+\\)"                   ; name
-               "\s*\\(,\\|)\\|;\\)") nil t 1)       ; trailing comma or paren
+      (while
+          (re-search-forward
+           (concat
+            "\\(input\\|output\\|inout\\)+\s?"   ; direction
+            "\\(reg\\|logic\\|wire\\|var\\)?\s?" ; type
+            "\\(\\[[^]]+:[^]]+\\]\\)?\s?"        ; bit range?
+            "\\([0-9A-z_]+\\)\s?"                ; name
+            "[,;)]?")
+           nil t 1)
+
         (let* ((direction (match-string 1))
-               (bithi (match-string 3))
-               (bitlo (match-string 4))
-               (name (match-string 5))
+               (bitstring (match-string 3))
+               (name (match-string 4))
+               (bitrange (when bitstring (split-string bitstring "\\[\\|:\\|\\]" t)))
+               (bithi  (when bitrange (car bitrange)))
+               (bitlo (when bitrange (cadr bitrange)))
                (port-entry (format-port-list name
                                              :port-direct direction
-                                             :port-type (format "std_logic_vector (%s downto %s)" bithi bitlo))))
-          (push port-entry ports)))
-      ports)))
+                                             :port-type
+                                             (if (and bithi bitlo) (format "std_logic_vector (%s downto %s)" bithi bitlo)
+                                               "std_logic"))))
+          (add-to-list 'ports port-entry t))) ports)))
 
 (defun verilog-port-paste-instance ()
   "Paste as an Verilog instantiation."
