@@ -1,4 +1,13 @@
+;;
+;; "Variable to hold last port map parsed."
+;; structure: (parenthesized expression means list of such entries)
+;; (ent-name
+;;  ((generic-names) generic-type generic-init generic-comment group-comment)
+;;  ((port-names) port-object port-direct port-type port-comment group-comment)
+;;  (lib-name pack-key))
+
 (require 'vhdl-mode)
+(require 'cl-lib)
 
 (defun align-paren (start end)
   "Align columns by ampersand"
@@ -130,6 +139,20 @@
           (verilog-parse-ansi-parameters module)))
 
 
+(cl-defun format-port-list (name &key port-object port-direct
+                                 port-type port-comment group-comment)
+
+  ;; " match to specified format, e.g.
+
+  (when (not group-comment)
+    (setq group-comment ""))
+
+  ;; Structure:
+  ;;     ((port-names) port-object port-direct port-type port-comment group-comment)
+  ;; e.g (("qn_m2") nil "in" "std_logic_vector (9 downto 0)" nil "\n")"
+
+  (list (list name) port-object port-direct port-type port-comment group-comment))
+
 ;;;-----------------------------------------------------------------------------
 ;;; Ports
 ;;;-----------------------------------------------------------------------------
@@ -145,46 +168,44 @@
 
     (let ((ports nil))
 
-      (cl-flet ((push-to-ports
-                 (name dir type)
+      (goto-char (point-min))
 
-                 ;; match to specified format, e.g.
-                 ;; ((("qn_m2") nil "in" "std_logic_vector (9 downto 0)" nil "\n")
-                 (when name
-                   (push (list (list name) nil dir type nil "")
-                         ports))))
+      ;; TODO: comebine these regexps
 
-        ;; get std_logics
-        (goto-char (point-min))
+      ;; get std_logics
+      (while (re-search-forward
+              (concat "\\(input\\|output\\)\s+"            ; direction
+                      "\\(reg\\|logic\\|wire\\|var\s+\\)?" ; type
+                      "\\([0-9,A-z,_]+\\)"                 ; name
+                      "\s*\\(,\\|)\\|;\\)") nil t 1) ; trailing comma or paren or semicolon
 
-        (while (re-search-forward
-                (concat "\\(input\\|output\\)\s+"            ; direction
-                        "\\(reg\\|logic\\|wire\\|var\s+\\)?" ; type
-                        "\\([0-9,A-z,_]+\\)"                 ; name
-                        "\s*\\(,\\|)\\|;\\)"                 ; trailing comma or paren or semicolon
-                        ) nil t 1)
-          (let ((direction (match-string 1))
-                (name (match-string 3)))
+        (let* ((direction (match-string 1))
+               (name (match-string 3))
+               (port-entry
+                (format-port-list name
+                                  :port-direct direction
+                                  :port-type "std_logic")))
+          (push port-entry ports)))
 
-            (push-to-ports name direction "std_logic")
-            (list name direction)))
-
-        ;; get buses
-        (goto-char (point-min))
-        (while (re-search-forward
-                (concat
-                 "\\(input\\|output\\)\s+"            ; direction
-                 "\\(reg\\|logic\\|wire\\|var\s+\\)?" ; type
-                 "\\[\\([^]]+\\)\s*:"                 ; bit high
-                 "\\([^]]\\)]\s*"                     ; bit low
-                 "\\([0-9,A-z]+\\)"                   ; name
-                 "\s*\\(,\\|)\\|;\\)"                     ; trailing comma or paren
-                 ) nil t 1)
-          (let ((direction (match-string 1))
-                (bithi (match-string 3))
-                (bitlo (match-string 4))
-                (name (match-string 5)))
-            (push-to-ports name direction (format "std_logic_vector (%s downto %s)" bithi bitlo))))) ports)))
+      ;; get buses
+      (goto-char (point-min))
+      (while (re-search-forward
+              (concat
+               "\\(input\\|output\\)\s+"            ; direction
+               "\\(reg\\|logic\\|wire\\|var\s+\\)?" ; type
+               "\\[\\([^]]+\\)\s*:"                 ; bit high
+               "\\([^]]\\)]\s*"                     ; bit low
+               "\\([0-9,A-z]+\\)"                   ; name
+               "\s*\\(,\\|)\\|;\\)") nil t 1)       ; trailing comma or paren
+        (let* ((direction (match-string 1))
+               (bithi (match-string 3))
+               (bitlo (match-string 4))
+               (name (match-string 5))
+               (port-entry (format-port-list name
+                                             :port-direct direction
+                                             :port-type (format "std_logic_vector (%s downto %s)" bithi bitlo))))
+          (push port-entry ports)))
+      ports)))
 
 (defun verilog-port-paste-instance ()
   "Paste as an Verilog instantiation."
