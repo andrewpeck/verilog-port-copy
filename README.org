@@ -1,0 +1,11 @@
+#+OPTIONS: toc:3 author:nil
+#+TITLE: Verilog Port Copy
+
+This is a half-baked module which provides a small subset of the functionality of the ~vhdl-port-*~ functions.
+
+More functionality is planned over time but the main goal is to be able to make instantiation templates for:
+
+- verilog --> vhdl
+- verilog --> verilog
+- vhdl --> vhdl
+- vhdl --> verilog
