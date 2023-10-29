@@ -97,13 +97,12 @@
         generic-type generic-init generic-comment group-comment))
 
 
-(defun verilog--parse-ansi-generics (module)
+(defun verilog--parse-generics (module)
 
-  "Placeholder for ANSI style parameter parsing.
+  "Return verilog parameters from a MODULE.
 
-    Takes in a MODULE string.
-
-    Not implemented yet."
+A MODULE should be a string with the entire contents of the
+module with comments and newlines removed."
 
   (with-temp-buffer
 
@@ -113,14 +112,10 @@
 
     (let ((parameters nil))
 
-      ;; get initialized params, e.g. "parameter MXCNT = 12;"
-
-      (goto-char (point-min))
-
+      ;; get ansi params e.g. in #()
       (when (re-search-forward "module\s+[0-9A-z_]+\s*#\s*(")
 
         (goto-char (point-min))
-
         (while (re-search-forward
                 (concat
                  "\\(parameter\\|int\\)\s+" ;; could also have logic I think, anything else?
@@ -137,28 +132,16 @@
                 (name (match-string 3))
                 (default (match-string 4)))
 
-            (add-to-list 'parameters (verilog--format-generic name :generic-init default) t)))
+            (add-to-list 'parameters (verilog--format-generic name :generic-init default) t))))
 
-        parameters))))
-
-(defun verilog--parse-nonansi-generics (module)
-
-  "Gather up the non-ansi parameters in a Verilog MODULE string."
-
-  (with-temp-buffer
-
-    (insert module)
-
-    (goto-char (point-min))
-
-    (let ((parameters nil))
 
       ;; TODO: these regexps can be combined
-
       ;; get uninitialized params, e.g. "parameter MXCNT;"
+      (goto-char (point-min))
+
       (while (re-search-forward
               (concat
-               "parameter\s+" ;;
+               "parameter\s+"    ;;
                "\\([A-z0-9]+\\)" ;; name
                "\s*;") nil t)
         (let ((name (match-string 1))
@@ -169,12 +152,12 @@
       (goto-char (point-min))
       (while (re-search-forward
               (concat
-               "parameter\s+"     ;
-               "\\([A-z0-9_]+\\)" ; name
-               "\s*=\s*"          ;
-               "\\([A-z0-9_]+\\)?"    ; number of bits
-               "\\('[bdho]\\)?"  ; radix
-               "\\([0-9A-z,_]+\\)" ; val
+               "parameter\s+"           ;
+               "\\([A-z0-9_]+\\)"       ; name
+               "\s*=\s*"                ;
+               "\\([A-z0-9_]+\\)?"      ; number of bits
+               "\\('[bdho]\\)?"         ; radix
+               "\\([0-9A-z,_]+\\)"      ; val
                "\s*;") nil t)
 
         ;; account for different radixes, 'h3 / 7'h3 / 3'b10001 etc.
@@ -191,16 +174,6 @@
           (add-to-list 'parameters (verilog--format-generic name :generic-init val) t)))
 
       parameters)))
-
-(defun verilog--parse-generics (module)
-
-  "Return verilog parameters from a MODULE.
-
-A MODULE should be a string with the entire contents of the
-module with comments and newlines removed."
-
-  (append (verilog--parse-nonansi-generics module)
-          (verilog--parse-ansi-generics module)))
 
 
 ;;------------------------------------------------------------------------------
