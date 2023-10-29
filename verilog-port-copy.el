@@ -6,36 +6,53 @@
 ;;  ((port-names) port-object port-direct port-type port-comment group-comment)
 ;;  (lib-name pack-key))
 
+(require 'verilog-mode)
 (require 'vhdl-mode)
 (require 'cl-lib)
 
-(defun verilog--align-paren (start end)
-  "Align columns by ampersand"
-  (interactive "r")
-  (align-regexp start end
-                "\\(\\s-*\\)(" 1 1 nil))
+;;------------------------------------------------------------------------------
+;; Constants
+;;------------------------------------------------------------------------------
 
-(defun verilog--align-ports ()
-  (interactive)
-  (save-excursion
-    (beginning-of-line)
-    (er/expand-region 2)
-    (verilog--align-paren (region-beginning) (region-end))))
+(setq verilog--module-and-port-regexp
+      ;; (concat "module\s+\\([A-z0-9_]+\\)"  ; module name
+      ;;         "\s+#(\\(.*\\))\s*("         ; verilog2001 style parameters #()
+      ;;         "\\(.*\\))\s*;")
+                                        ; port list
 
-(defconst verilog--module-and-port-regexp
-  (concat "module\s+"
-          "\\([A-z0-9_]+\\)"            ; module name
-          "\\(\s+#([^)]*)\\)?"          ; verilog2001 style parameters #()
-          "\s*(\\([^)]*\\))")           ; port list
-  "Regexp to extract a module name and port list from a Verilog2001 style file.")
+      (concat "module\s+" "\\([A-z0-9_]+\\)"         ; module name
+              "\\(\s+#(.*)\s*(\\)?"        ; verilog2001 style parameters #()
+              "\\(.*\\))\s*;")
+      ;; "Regexp to extract a module name and port list from a Verilog2001 style file."
+      )
 
 (defconst verilog--module-regexp
   "module\s+\\([A-z0-9_]+\\)"
   "Regexp to extract a verilog module name.")
 
+;;------------------------------------------------------------------------------
+;; Alignment
+;;------------------------------------------------------------------------------
+
+(defun verilog--align-paren (start end)
+  "Align columns by ampersand"
+  (align-regexp start end "\\(\\s-*\\)(" 1 1 nil))
+
+(defun verilog--align-ports ()
+  (save-excursion
+    (beginning-of-line)
+    (er/expand-region 2)
+    (verilog--align-paren (region-beginning) (region-end))))
+
+;;------------------------------------------------------------------------------
+;; Module Extraction
+;;------------------------------------------------------------------------------
+
 (defun verilog--get-module-as-string ()
 
-  "Get a verilog module at point, return it as a string with comments and newlines removed."
+  "Get a verilog module at point, return it as a string.
+
+   Comments and newlines will be removed."
 
   (save-excursion
     (let* ((start (re-search-backward verilog--module-regexp))
@@ -43,7 +60,10 @@
            (module (buffer-substring-no-properties start end)))
 
       (setq module (replace-regexp-in-string "\/\/.*\n" "" module))
-      (setq module (replace-regexp-in-string "\n" " " module)) module)))
+      (setq module (replace-regexp-in-string "\n" " " module))
+      (setq module (replace-regexp-in-string "\s\s+" " " module))
+
+      module)))
 
 (defun verilog--get-module-name ()
   "Get the name of the Verilog module at point in the currently opened buffer."
@@ -52,25 +72,39 @@
     (when  (re-search-backward verilog--module-regexp)
       (match-string-no-properties 1))))
 
-;;;-----------------------------------------------------------------------------
-;;; Parameters
-;;;-----------------------------------------------------------------------------
+;;-----------------------------------------------------------------------------
+;; Parameters
+;;-----------------------------------------------------------------------------
 
-(defun verilog--parse-ansi-parameters (module)
+(cl-defun verilog--format-generic
+    (name &key generic-type generic-init
+          generic-comment group-comment)
+
+  "Format verilog generic NAME.
+
+    GENERIC-TYPE:
+    GENERIC-INIT:
+    GENERIC-COMMENT:
+    GROUP-COMMENT:
+
+    ((generic-names) generic-type generic-init generic-comment group-comment)"
+
+
+  (when (not group-comment)
+    (setq group-comment "\n"))
+
+  (list (list name)
+        generic-type generic-init generic-comment group-comment))
+
+
+(defun verilog--parse-ansi-generics (module)
 
   "Placeholder for ANSI style parameter parsing.
 
-Takes in a MODULE string.
+    Takes in a MODULE string.
 
-Not implemented yet."
+    Not implemented yet."
 
-  nil)
-
-(defun verilog--parse-nonansi-parameters (module)
-
-  "Gather up the non-ansi parameters in a Verilog MODULE string."
-
-  ;; create a temp buffer as a copy of the current one
   (with-temp-buffer
 
     (insert module)
@@ -79,43 +113,82 @@ Not implemented yet."
 
     (let ((parameters nil))
 
-      (cl-flet ((push-to-params
-                 (name val)
-                 (when name (push (list (list name) nil val nil "\n") parameters))))
+      ;; get initialized params, e.g. "parameter MXCNT = 12;"
 
-        ;; get uninitialized params, e.g. "parameter MXCNT;"
-        (while (re-search-forward
-                (concat
-                 "parameter\s+" ;;
-                 "\\([A-z0-9]+\\)" ;; name
-                 "\s*;") nil t)
-          (let ((name (match-string 1))
-                (val nil))
-            (push-to-params name val)))
+      (goto-char (point-min))
 
-        ;; get initialized params, e.g. "parameter MXCNT = 12;"
+      (when (re-search-forward "module\s+[0-9A-z_]+\s*#\s*(")
+
         (goto-char (point-min))
+
         (while (re-search-forward
                 (concat
-                 "parameter\s+"     ;
-                 "\\([A-z0-9_]+\\)" ; name
-                 "\s*=\s*"          ;
-                 "\\([A-z0-9_]+\\)?"    ; number of bits
-                 "\\('[bdho]\\)?"  ; radix
-                 "\\([0-9A-z,_]+\\)" ; val
-                 "\s*;"
-                 ) nil t)
+                 "\\(parameter\\|int\\)\s+" ;; could also have logic I think, anything else?
+                 "\\(\\[[^]]*\\]\\s-*\\)?"  ;; range
+                 ;; "\\(" verilog-range-re "\\)?" ;; range?
+                 "\\(" verilog-identifier-re "\\)"
+                 "\s*=?\s*"
+                 "\\([$A-z0-9()]+\\)?"
+                 "\s*\\(,\\|)\s*(\\)")
+                nil t) ;; either a comma or parentheis pair )(
 
-          ;; account for different radixes, 'h3 / 7'h3 / 3'b10001 etc.
-          (let* ((name (match-string 1))
-                 (radix  (pcase  (match-string 3)
-                           ("'b" 2)
-                           ("'o" 8)
-                           ("'d" 10)
-                           ("'h" 16)
-                           (x 10)))
-                 (val  (format "%s" (string-to-number (match-string 4) radix))))
-            (push-to-params name val))))
+          (let ((type (match-string 1))
+                (range (match-string 2))
+                (name (match-string 3))
+                (default (match-string 4)))
+
+            (add-to-list 'parameters (verilog--format-generic name :generic-init default) t)))
+
+        parameters))))
+
+(defun verilog--parse-nonansi-generics (module)
+
+  "Gather up the non-ansi parameters in a Verilog MODULE string."
+
+  (with-temp-buffer
+
+    (insert module)
+
+    (goto-char (point-min))
+
+    (let ((parameters nil))
+
+      ;; TODO: these regexps can be combined
+
+      ;; get uninitialized params, e.g. "parameter MXCNT;"
+      (while (re-search-forward
+              (concat
+               "parameter\s+" ;;
+               "\\([A-z0-9]+\\)" ;; name
+               "\s*;") nil t)
+        (let ((name (match-string 1))
+              (val nil))
+          (add-to-list 'parameters (verilog--format-generic name :generic-init val) t)))
+
+      ;; get initialized params, e.g. "parameter MXCNT = 12;"
+      (goto-char (point-min))
+      (while (re-search-forward
+              (concat
+               "parameter\s+"     ;
+               "\\([A-z0-9_]+\\)" ; name
+               "\s*=\s*"          ;
+               "\\([A-z0-9_]+\\)?"    ; number of bits
+               "\\('[bdho]\\)?"  ; radix
+               "\\([0-9A-z,_]+\\)" ; val
+               "\s*;") nil t)
+
+        ;; account for different radixes, 'h3 / 7'h3 / 3'b10001 etc.
+        (let* ((name (match-string 1))
+               (radix  (pcase  (match-string 3)
+                         ("'b" 2)
+                         ("'o" 8)
+                         ("'d" 10)
+                         ("'h" 16)
+                         (x 10)))
+               (val  (format "%s" (string-to-number (match-string 4) radix))))
+
+
+          (add-to-list 'parameters (verilog--format-generic name :generic-init val) t)))
 
       parameters)))
 
@@ -126,12 +199,17 @@ Not implemented yet."
 A MODULE should be a string with the entire contents of the
 module with comments and newlines removed."
 
-  (append (verilog--parse-nonansi-parameters module)
-          (verilog--parse-ansi-parameters module)))
+  (append (verilog--parse-nonansi-generics module)
+          (verilog--parse-ansi-generics module)))
 
 
-(cl-defun verilog--format-port-list (name &key port-object port-direct
-                                          port-type port-comment group-comment)
+;;------------------------------------------------------------------------------
+;; Ports
+;;------------------------------------------------------------------------------
+
+
+(cl-defun verilog--format-port (name &key port-object port-direct
+                                     port-type port-comment group-comment)
 
   "Format a port following the structure specified in vhdl-mode.el.
 
@@ -160,8 +238,6 @@ GROUP-COMMENT is ???"
 (defun verilog--parse-ports (module)
 
   ""
-
-  (interactive)
 
   (with-temp-buffer
 
@@ -192,9 +268,9 @@ GROUP-COMMENT is ???"
                (port-type (if (and bithi bitlo)
                               (format "std_logic_vector (%s downto %s)" bithi bitlo)
                             "std_logic"))
-               (port-entry (verilog--format-port-list name
-                                                      :port-direct direction
-                                                      :port-type port-type)))
+               (port-entry (verilog--format-port name
+                                                 :port-direct direction
+                                                 :port-type port-type)))
           (add-to-list 'ports port-entry t))) ports)))
 
 ;;-----------------------------------------------------------------------------
