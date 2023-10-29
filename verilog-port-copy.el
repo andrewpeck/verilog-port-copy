@@ -55,6 +55,11 @@
    Comments and newlines will be removed."
 
   (save-excursion
+
+    ;; forward word so it works on module itself.
+    (when (string= "module" (symbol-at-point))
+      (forward-word 2))
+
     (let* ((start (re-search-backward verilog--module-regexp))
            (end   (re-search-forward "endmodule")) ; FIXME: make sure this is not in a comment
            (module (buffer-substring-no-properties start end)))
