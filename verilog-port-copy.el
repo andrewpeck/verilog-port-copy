@@ -1,4 +1,44 @@
+;;; verilog-port-copy.el --- Functions for working with verilog files -*- lexical-binding: t; -*-
 ;;
+;; Copyright (C) 2023 Andrew Peck
+
+;; Author: Andrew Peck <peckandrew@gmail.com>
+;; URL: https://github.com/andrewpeck/verilog-port-copy
+;; Version: 0.0.1
+;; Package-Requires: ((emacs "27.1"))
+;; Keywords: tools vhdl verilog
+
+;; This file is not part of GNU Emacs.
+;;
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation; either version 3, or (at your option)
+;; any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License
+;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>
+
+;;; Commentary:
+;;
+;; `vhdl-mode' provides a fanstastic feature of being able to copy a port at
+;; point, and paste an instantiation template.
+;;
+;; This provides some buggy extensions that allow doing the same thing from
+;; Verilog and Systemverilog.
+;;
+;; It uses the existing data structure of `vhdl-mode' so this provides
+;;
+;;    verilog --> verilog
+;;    verilog --> vhdl
+;;    vhdl    --> verilog
+
+;;; Code:
+
 ;; "Variable to hold last port map parsed."
 ;; structure: (parenthesized expression means list of such entries)
 ;; (ent-name
@@ -9,13 +49,14 @@
 (require 'verilog-mode)
 (require 'vhdl-mode)
 (require 'cl-lib)
+(require 'expand-region)
 
 ;;------------------------------------------------------------------------------
 ;; Constants
 ;;------------------------------------------------------------------------------
 
 (defconst verilog--module-and-port-regexp
-  (concat "module\s+" "\\([A-z0-9_]+\\)"         ; module name
+  (concat "module\s+" "\\([A-z0-9_]+\\)"  ; module name
           "\\(\s+#\s*(.*)\s*(\\)?"        ; verilog2001 style parameters #()
           "\\(.*\\))\s*;")
   "Regexp to extract a module name and port list from a Verilog2001 style file.")
@@ -33,6 +74,7 @@
   (align-regexp start end "\\(\\s-*\\)(" 1 1 nil))
 
 (defun verilog--align-ports ()
+  "Align verilog ports at point."
   (save-excursion
     (beginning-of-line)
     (er/expand-region 2)
