@@ -14,17 +14,11 @@
 ;; Constants
 ;;------------------------------------------------------------------------------
 
-(setq verilog--module-and-port-regexp
-      ;; (concat "module\s+\\([A-z0-9_]+\\)"  ; module name
-      ;;         "\s+#(\\(.*\\))\s*("         ; verilog2001 style parameters #()
-      ;;         "\\(.*\\))\s*;")
-                                        ; port list
-
-      (concat "module\s+" "\\([A-z0-9_]+\\)"         ; module name
-              "\\(\s+#(.*)\s*(\\)?"        ; verilog2001 style parameters #()
-              "\\(.*\\))\s*;")
-      ;; "Regexp to extract a module name and port list from a Verilog2001 style file."
-      )
+(defconst verilog--module-and-port-regexp
+  (concat "module\s+" "\\([A-z0-9_]+\\)"         ; module name
+          "\\(\s+#\s*(.*)\s*(\\)?"        ; verilog2001 style parameters #()
+          "\\(.*\\))\s*;")
+  "Regexp to extract a module name and port list from a Verilog2001 style file.")
 
 (defconst verilog--module-regexp
   "module\s+\\([A-z0-9_]+\\)"
