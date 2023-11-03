@@ -157,7 +157,7 @@ module with comments and newlines removed."
 
     (let ((parameters nil))
 
-      (when (re-search-forward verilog--module-and-port-regexp)
+      (when (re-search-forward verilog--module-and-port-regexp nil t)
         (let ((ansi-port-str (match-string 2)))
           (with-temp-buffer
 
