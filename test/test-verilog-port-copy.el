@@ -4,14 +4,14 @@
 (require 'ert)
 
 (defmacro port-copy-test (file port-list)
-  `(ert-deftest ,(intern (concat "test-" file))
+  `(ert-deftest ,(intern file)
        nil
      (should (equal
               ,port-list
               (progn (find-file ,file) (verilog-port-copy) vhdl-port-list)))))
 
 
-(port-copy-test "verilog3.sv"
+(port-copy-test "test/verilog3.sv"
                 '("some_obfusticated_module"
                   ((("WEIGHT") nil "5" nil "\n")
                    (("WIDTH") nil "2" nil "\n")
@@ -23,7 +23,7 @@
                    (("some_2d_port_1") nil "input" "std_logic_vector (WEIGHT-1 downto 0)" nil "")
                    (("some_2d_port_2") nil "input" "std_logic_vector (WEIGHT-1 downto 0)" nil "")) nil))
 
-(port-copy-test "verilog.v"
+(port-copy-test "test/verilog.v"
                 '("distrip"
                   ((("test") nil "3" nil "\n"))
                   ((("qn_m2") nil "input" "std_logic_vector (9 downto 0)" nil "")
