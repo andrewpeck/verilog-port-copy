@@ -55,10 +55,14 @@
 ;; Constants
 ;;------------------------------------------------------------------------------
 
+
+;; "module\s+\\([A-z]+[A-z0-9_]*\\)\s*\\(#(.*)\\))?\s*();"
+
 (defconst verilog--module-and-port-regexp
-  (concat "module\s+" "\\([A-z0-9_]+\\)"  ; module name
-          "\\(\s+#\s*(.*)\s*(\\)?"        ; verilog2001 style parameters #()
-          "\\(.*\\))\s*;")
+  (concat "module\s+"
+          "\\([A-z]+[A-z0-9_]*\\)\s*" ; module name
+          "\s*\\(#(.*)\\)?"           ; verilog2001 style parameters #()
+          "\\(\s*(.*);\\)")
   "Regexp to extract a module name and port list from a Verilog2001 style file.")
 
 (defconst verilog--module-regexp
@@ -153,27 +157,32 @@ module with comments and newlines removed."
 
     (let ((parameters nil))
 
-      ;; get ansi params e.g. in #()
-      (when (re-search-forward "module\s+[0-9A-z_]+\s*#\s*(")
+      (when (re-search-forward verilog--module-and-port-regexp)
+        (let ((ansi-port-str (match-string 2)))
+          (with-temp-buffer
 
-        (goto-char (point-min))
-        (while (re-search-forward
-                (concat
-                 "\\(parameter\\|int\\)\s+" ;; could also have logic I think, anything else?
-                 "\\(\\[[^]]*\\]\\s-*\\)?"  ;; range
-                 ;; "\\(" verilog-range-re "\\)?" ;; range?
-                 "\\(" verilog-identifier-re "\\)"
-                 "\s*=?\s*"
-                 "\\([$A-z0-9()]+\\)?"
-                 "\s*\\(,\\|)\s*(\\)")
-                nil t) ;; either a comma or parentheis pair )(
+            (insert ansi-port-str)
+            (goto-char (point-min))
 
-          (let ((type (match-string 1))
-                (range (match-string 2))
-                (name (match-string 3))
-                (default (match-string 4)))
+            ;; get ansi params e.g. in #()
 
-            (add-to-list 'parameters (verilog--format-generic name :generic-init default) t))))
+            (goto-char (point-min))
+            (while (re-search-forward
+                    (concat "\\(parameter\\|int\\)\s+" ;; could also have logic I think, anything else?
+                            "\\(\\[[^]]*\\]\\s-*\\)?"  ;; range
+                            ;; "\\(" verilog-range-re "\\)?" ;; range?
+                            "\\(" verilog-identifier-re "\\)"
+                            "\s*=?\s*"
+                            "\\([^,]+\\|)\s*(\\)?"
+                            "\s*,?\\(\s*)\s*;\\)?")
+                    nil t)
+
+              (let ((type (match-string 1))
+                    (range (match-string 2))
+                    (name (match-string 3))
+                    (default (match-string 4)))
+
+                (add-to-list 'parameters (verilog--format-generic name :generic-init default) t))))))
 
 
       ;; TODO: these regexps can be combined
@@ -266,11 +275,13 @@ GROUP-COMMENT is ???"
       (while
           (re-search-forward
            (concat
+            "\s+"
             "\\(input\\|output\\|inout\\)+\s?"   ; direction
             "\\(reg\\|logic\\|wire\\|var\\)?\s?" ; type
             "\\(\\[[^]]+:[^]]+\\]\\)?\s?"        ; bit range?
             "\\([0-9A-z_]+\\)\s?"                ; name
-            "[,;)]?")
+            "\\(\\[[^]]+:[^]]+\\]\\)?\s?"        ; 2nd dimension of a range... FIXME: ranges can be 1d
+            "\\(,\\|)\s*;\\)")
            nil t 1)
 
         (let* ((direction (match-string 1))
