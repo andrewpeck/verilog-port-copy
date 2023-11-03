@@ -46,7 +46,6 @@
 
 ;;; Code:
 
-(require 'verilog-mode)
 (require 'vhdl-mode)
 (require 'cl-lib)
 
@@ -55,7 +54,8 @@
 ;;------------------------------------------------------------------------------
 
 
-;; "module\s+\\([A-z]+[A-z0-9_]*\\)\s*\\(#(.*)\\))?\s*();"
+(defconst verilog--identifier-re "[a-zA-Z_][a-zA-Z_0-9]*"
+  "")
 
 (defconst verilog--module-and-port-regexp
   (concat "module\s+"
@@ -170,7 +170,7 @@ module with comments and newlines removed."
                     (concat "\\(parameter\\|int\\)\s+" ;; could also have logic I think, anything else?
                             "\\(\\[[^]]*\\]\\s-*\\)?"  ;; range
                             ;; "\\(" verilog-range-re "\\)?" ;; range?
-                            "\\(" verilog-identifier-re "\\)"
+                            "\\(" verilog--identifier-re "\\)"
                             "\s*=?\s*"
                             "\\([^,]+\\|)\s*(\\)?"
                             "\s*,?\\(\s*)\s*;\\)?")
