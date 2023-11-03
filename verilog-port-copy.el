@@ -280,7 +280,7 @@ GROUP-COMMENT is ???"
             "\\(reg\\|logic\\|wire\\|var\\)?\s?" ; type
             "\\(\\[[^]]+:[^]]+\\]\\)?\s?"        ; bit range?
             "\\([0-9A-z_]+\\)\s?"                ; name
-            "\\(\\[[^]]+:[^]]+\\]\\)?\s?"        ; 2nd dimension of a range... FIXME: ranges can be 1d
+            "\\(\\[[^]]+:?[^]]*\\]\\)?\s?"       ; 2nd dimension of a range
             "\\(,\\|)\s*;\\)")
            nil t 1)
 
