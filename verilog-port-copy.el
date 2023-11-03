@@ -181,7 +181,7 @@ module with comments and newlines removed."
                     (name (match-string 3))
                     (default (match-string 4)))
 
-                (add-to-list 'parameters (verilog--format-generic name :generic-init default) t))))))
+                (push (verilog--format-generic name :generic-init default) parameters))))))
 
 
       ;; TODO: these regexps can be combined
@@ -195,7 +195,7 @@ module with comments and newlines removed."
                "\s*;") nil t)
         (let ((name (match-string 1))
               (val nil))
-          (add-to-list 'parameters (verilog--format-generic name :generic-init val) t)))
+          (push (verilog--format-generic name :generic-init val) parameters)))
 
       ;; get initialized params, e.g. "parameter MXCNT = 12;"
       (goto-char (point-min))
@@ -220,9 +220,9 @@ module with comments and newlines removed."
                (val  (format "%s" (string-to-number (match-string 4) radix))))
 
 
-          (add-to-list 'parameters (verilog--format-generic name :generic-init val) t)))
+          (push (verilog--format-generic name :generic-init val) parameters)))
 
-      parameters)))
+      (reverse parameters))))
 
 
 ;;------------------------------------------------------------------------------
@@ -295,7 +295,9 @@ GROUP-COMMENT is ???"
                (port-entry (verilog--format-port name
                                                  :port-direct direction
                                                  :port-type port-type)))
-          (add-to-list 'ports port-entry t))) ports)))
+          (push port-entry ports )))
+
+      (reverse ports))))
 
 ;;-----------------------------------------------------------------------------
 ;; Entrypoints
