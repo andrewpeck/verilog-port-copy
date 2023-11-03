@@ -5,7 +5,7 @@
 ;; Author: Andrew Peck <peckandrew@gmail.com>
 ;; URL: https://github.com/andrewpeck/verilog-port-copy
 ;; Version: 0.0.1
-;; Package-Requires: ((emacs "27.1"))
+;; Package-Requires: ((emacs "27.1") (expand-region "0.11"))
 ;; Keywords: tools vhdl verilog
 
 ;; This file is not part of GNU Emacs.
@@ -36,20 +36,19 @@
 ;;    verilog --> verilog
 ;;    verilog --> vhdl
 ;;    vhdl    --> verilog
-
-;;; Code:
-
-;; "Variable to hold last port map parsed."
-;; structure: (parenthesized expression means list of such entries)
+;;
+;; The data structure is defined by:
+;;
 ;; (ent-name
 ;;  ((generic-names) generic-type generic-init generic-comment group-comment)
 ;;  ((port-names) port-object port-direct port-type port-comment group-comment)
 ;;  (lib-name pack-key))
 
+;;; Code:
+
 (require 'verilog-mode)
 (require 'vhdl-mode)
 (require 'cl-lib)
-(require 'expand-region)
 
 ;;------------------------------------------------------------------------------
 ;; Constants
