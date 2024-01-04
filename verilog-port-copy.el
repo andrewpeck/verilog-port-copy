@@ -77,6 +77,7 @@
   (align-regexp start end "\\(\\s-*\\)(" 1 1 nil))
 
 (defun verilog--align-ports ()
+  (interactive)
   "Align verilog ports at point."
   (save-excursion
     (beginning-of-line)
