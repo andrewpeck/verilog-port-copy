@@ -83,8 +83,8 @@
 
 (port-copy-test "test/test6.v"
                 '("srl_multi"
-                  ((("N") nil "32" nil "\n")
-                   (("W") nil "8" nil "\n"))
+                  ((("N") nil "" nil "\n")
+                   (("W") nil "" nil "\n"))
                   ((("clk") nil "input" "std_logic" nil "")
                    (("en") nil "input" "std_logic" nil "")
                    (("sel") nil "input" "std_logic_vector" nil "")

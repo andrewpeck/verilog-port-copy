@@ -1,5 +1,5 @@
 module srl_multi
-  #(int N = 32, W=8) (
+  #(int N = 32, W=8 ) (
   input wire                 clk,
   input wire                 en,
   input wire [$clog2(N)-1:0] sel,
