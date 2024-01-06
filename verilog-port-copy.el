@@ -1,6 +1,6 @@
 ;;; verilog-port-copy.el --- Functions for working with verilog files -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2023 Andrew Peck
+;; Copyright (C) 2023, 2024 Andrew Peck
 
 ;; Author: Andrew Peck <peckandrew@gmail.com>
 ;; URL: https://github.com/andrewpeck/verilog-port-copy
@@ -168,19 +168,32 @@ module with comments and newlines removed."
 
             (goto-char (point-min))
             (while (re-search-forward
-                    (concat "\\(parameter\\|int\\)\s+" ;; could also have logic I think, anything else?
-                            "\\(\\[[^]]*\\]\\s-*\\)?"  ;; range
-                            ;; "\\(" verilog-range-re "\\)?" ;; range?
-                            "\\(" verilog--identifier-re "\\)"
-                            "\s*=?\s*"
-                            "\\([^,]+\\|)\s*(\\)?"
-                            "\s*,?\\(\s*)\s*;\\)?")
+                    (concat
+
+                     ;; get the type
+                     "\\(parameter\\|int\\)\s+" ;; could also have logic I think, anything else?
+
+                     ;; get the range
+                     "\\(\\[[^]]*\\]\\s-*\\)?"
+                     ;; "\\(" verilog-range-re "\\)?" ;; range?
+
+                     ;; get the name
+                     "\\(" verilog--identifier-re "\\)"
+
+                     ;; has a value?
+                     "\s*=?\s*"
+
+                     ;; get the value
+                     "\\([^,]+\\|)\s*(\\)?"
+
+                     ;; close
+                     "\s*,?\\(\s*)\s*;\\)?")
                     nil t)
 
               (let ((type (match-string 1))
                     (range (match-string 2))
                     (name (match-string 3))
-                    (default (match-string 4)))
+                    (default "")) ; just ignore defaults for now.. need a real parser for this (match-string 4)
 
                 (push (verilog--format-generic name :generic-init default) parameters))))))
 

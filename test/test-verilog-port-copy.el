@@ -31,9 +31,9 @@
 
 (port-copy-test "test/test2.v"
                 '("get_trig_vals_lut_tables_1_rom"
-                  ((("someparam") nil "2" nil "\n")
-                   (("AWIDTH") nil "8" nil "\n")
-                   (("MEMSIZE") nil "197" nil "\n"))
+                  ((("someparam") nil "" nil "\n")
+                   (("AWIDTH") nil "" nil "\n")
+                   (("MEMSIZE") nil "" nil "\n"))
                   ((("addr0") nil "input" "std_logic_vector (AWIDTH-1 downto 0)" nil "")
                    (("ce0") nil "input" "std_logic" nil "")
                    (("q0") nil "output" "std_logic_vector (DWIDTH-1 downto 0)" nil "")
@@ -44,11 +44,11 @@
 
 (port-copy-test "test/test3.v"
                 '("some_obfusticated_module"
-                  ((("WEIGHT") nil "5" nil "\n")
-                   (("WIDTH") nil "2" nil "\n")
-                   (("LATENCY") nil "11 + (A_B_C==1 && D_E_F == 10 ? 4 : 0) + (N_OUTPUTS == 7 ? 1 : 0) + (N_OUTPUTS == 11 ? 3 : 0) + (N_OUTPUTS == 15 ? 5 : 0)" nil "\n")
-                   (("X") nil "$clog2(WIDTH)" nil "\n")
-                   (("Y") nil "$clog2(WEIGHT))" nil "\n"))
+                  ((("WEIGHT") nil "" nil "\n")
+                   (("WIDTH") nil "" nil "\n")
+                   (("LATENCY") nil "" nil "\n")
+                   (("X") nil "" nil "\n")
+                   (("Y") nil "" nil "\n"))
                   ((("clk") nil "input" "std_logic" nil "")
                    (("reset") nil "input" "std_logic" nil "")
                    (("some_2d_port_1") nil "input" "std_logic_vector (WEIGHT-1 downto 0)" nil "")
@@ -56,10 +56,10 @@
 
 (port-copy-test "test/test4.v"
                 '("mock_module"
-                  ((("N_IN") nil "64" nil "\n")
-                   (("N_OUT") nil "15" nil "\n")
-                   (("PERMB") nil "$clog2(N_IN)" nil "\n")
-                   (("DELAY") nil "0" nil "\n"))
+                  ((("N_IN") nil "" nil "\n")
+                   (("N_OUT") nil "" nil "\n")
+                   (("PERMB") nil "" nil "\n")
+                   (("DELAY") nil "" nil "\n"))
                   ((("k") nil "input" "std_logic_vector (PERMB-1 downto 0)" nil "")
                    (("i") nil "input" "std_logic_vector (N_IN-1 downto 0)" nil "")
                    (("o") nil "output" "std_logic_vector (N_OUT-1 downto 0)" nil "")) nil))

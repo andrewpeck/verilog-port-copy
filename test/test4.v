@@ -17,7 +17,7 @@ module mock_module #(
     end
   end
 `else
-  intial $error("some error");
+  initial $error("some error");
 `endif
 
 endmodule
