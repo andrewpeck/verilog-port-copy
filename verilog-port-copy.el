@@ -304,7 +304,7 @@ GROUP-COMMENT is ???"
                (bithi  (when bitrange (car bitrange)))
                (bitlo (when bitrange (cadr bitrange)))
                (port-type (if (and bithi bitlo)
-                              (format "std_logic_vector (%s downto %s)" bithi bitlo)
+                              "std_logic_vector"
                             "std_logic"))
                (port-entry (verilog--format-port name
                                                  :port-direct direction
