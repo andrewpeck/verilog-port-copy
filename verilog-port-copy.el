@@ -1,6 +1,6 @@
 ;;; verilog-port-copy.el --- Functions for working with verilog files -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2023, 2024 Andrew Peck
+;; Copyright (C) 2023-2024 Andrew Peck
 
 ;; Author: Andrew Peck <peckandrew@gmail.com>
 ;; URL: https://github.com/andrewpeck/verilog-port-copy
@@ -54,13 +54,14 @@
 ;;------------------------------------------------------------------------------
 
 
-(defconst verilog--identifier-re "[a-zA-Z_][a-zA-Z_0-9]*"
-  "")
+(defconst verilog--identifier-re
+  "[a-zA-Z_][a-zA-Z_0-9]*"
+  "Regular expression for a verilog-port-copy identifier (a name).")
 
 (defconst verilog--module-and-port-regexp
   (concat "module\s+"
           "\\([A-z]+[A-z0-9_]*\\)\s*" ; module name
-          "\s*\\(#(.*)\\)?"           ; verilog2001 style parameters #()
+          "\s*\\(#[[:blank:]]?(.*)\\)?"           ; verilog2001 style parameters #()
           "\\(\s*(.*);\\)")
   "Regexp to extract a module name and port list from a Verilog2001 style file.")
 
