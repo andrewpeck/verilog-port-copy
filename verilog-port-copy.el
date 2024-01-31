@@ -357,17 +357,18 @@ GROUP-COMMENT is ???"
           (ports (caddr vhdl-port-list)))
 
       (insert module-name)
-      (insert " #(\n")
 
       ;; insert generics
       (when generics
+        (insert " #(\n")
+
         (dolist (generic generics)
           (let ((gname (caar generic)))
             (insert (format "  .%s(%s),\n" gname gname))))
         ;; remove the last comma and newline
-        (delete-char -2))
+        (delete-char -2)
 
-      (insert ")")
+        (insert ")"))
 
       ;; (beginning-of-line)
       ;; (save-excursion (verilog--align-ports))
