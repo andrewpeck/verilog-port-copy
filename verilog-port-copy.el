@@ -150,6 +150,8 @@
 A MODULE should be a string with the entire contents of the
 module with comments and newlines removed."
 
+
+
   (with-temp-buffer
 
     (insert module)
@@ -158,45 +160,50 @@ module with comments and newlines removed."
 
     (let ((parameters nil))
 
+
       (when (re-search-forward verilog--module-and-port-regexp nil t)
+
         (let ((ansi-port-str (match-string 2)))
-          (with-temp-buffer
+          (when ansi-port-str
+            (with-temp-buffer
 
-            (insert ansi-port-str)
-            (goto-char (point-min))
+              (insert ansi-port-str)
+              (goto-char (point-min))
 
-            ;; get ansi params e.g. in #()
+              ;; get ansi params e.g. in #()
 
-            (goto-char (point-min))
-            (while (re-search-forward
-                    (concat
+              (goto-char (point-min))
 
-                     ;; get the type
-                     "\\([[:blank:]]parameter[[:blank:]]\\|[[:blank:]]int[[:blank:]]\\|[[:blank:]]\\)" ;; could also have logic I think, anything else?
+              (while (re-search-forward
+                      (concat
 
-                     ;; get the range
-                     "\\(\\[[^]]*\\]\\s-*\\)?"
-                     ;; "\\(" verilog-range-re "\\)?" ;; range?
+                       ;; get the type
+                       "\\([[:blank:]]parameter[[:blank:]]\\|[[:blank:]]int[[:blank:]]\\|[[:blank:]]\\)" ;; could also have logic I think, anything else?
 
-                     ;; get the name
-                     "\\(" verilog--identifier-re "\\)"
+                       ;; get the range
+                       "\\(\\[[^]]*\\]\\s-*\\)?"
+                       ;; "\\(" verilog-range-re "\\)?" ;; range?
 
-                     ;; has a value?
-                     "\s*=?\s*"
+                       ;; get the name
+                       "\\(" verilog--identifier-re "\\)"
 
-                     ;; get the value
-                     "\\([^,]+\\|)\s*(\\)?"
+                       ;; has a value?
+                       "\s*=?\s*"
 
-                     ;; close
-                     "\s*,?\\(\s*)\s*;\\)?")
-                    nil t)
+                       ;; get the value
+                       "\\([^,]+\\|)\s*(\\)?"
 
-              (let ((type (match-string 1))
-                    (range (match-string 2))
-                    (name (match-string 3))
-                    (default "")) ; just ignore defaults for now.. need a real parser for this (match-string 4)
+                       ;; close
+                       "\s*,?\\(\s*)\s*;\\)?")
+                      nil t)
 
-                (push (verilog--format-generic name :generic-init default) parameters))))))
+
+                (let ((type (match-string 1))
+                      (range (match-string 2))
+                      (name (match-string 3))
+                      (default "")) ; just ignore defaults for now.. need a real parser for this (match-string 4)
+
+                  (push (verilog--format-generic name :generic-init default) parameters)))))))
 
 
       ;; TODO: these regexps can be combined
@@ -214,6 +221,7 @@ module with comments and newlines removed."
 
       ;; get initialized params, e.g. "parameter MXCNT = 12;"
       (goto-char (point-min))
+
       (while (re-search-forward
               (concat
                "parameter\s+"           ;

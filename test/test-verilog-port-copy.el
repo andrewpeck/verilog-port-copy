@@ -91,3 +91,9 @@
                    (("sel") nil "input" "std_logic_vector" nil "")
                    (("din") nil "input" "std_logic_vector" nil "")
                    (("dout") nil "output" "std_logic_vector" nil "")) nil))
+
+(port-copy-test "test/test7.v"
+                '("oneshot" nil ((("clk") nil "input" "std_logic" nil "")
+                                 (("rst") nil "input" "std_logic" nil "")
+                                 (("d") nil "input" "std_logic" nil "")
+                                 (("q") nil "output" "std_logic" nil "")) nil))
