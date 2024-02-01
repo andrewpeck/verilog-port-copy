@@ -47,6 +47,7 @@
                 '("some_obfusticated_module"
                   ((("WEIGHT") nil "" nil "\n")
                    (("WIDTH") nil "" nil "\n")
+                   (("SOMEREAL") nil "" nil "\n")
                    (("LATENCY") nil "" nil "\n")
                    (("X") nil "" nil "\n")
                    (("Y") nil "" nil "\n"))

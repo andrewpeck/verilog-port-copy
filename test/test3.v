@@ -3,6 +3,7 @@ module some_obfusticated_module
   // parameters
   int WEIGHT = 5,
   int WIDTH = 2,
+  real SOMEREAL = 3.0,  
   int LATENCY = 11 + (A_B_C==1 && D_E_F == 10 ? 4 : 0)
       + (N_OUTPUTS == 7 ? 1 : 0)
       + (N_OUTPUTS == 11 ? 3 : 0)
