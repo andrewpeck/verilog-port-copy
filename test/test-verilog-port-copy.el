@@ -8,7 +8,7 @@
        nil
      (should (equal
               ,port-list
-              (progn (find-file ,file) (verilog-port-copy) vhdl-port-list)))))
+              (progn (find-file (concat (vc-root-dir) ,file)) (verilog-port-copy) vhdl-port-list)))))
 
 
 (port-copy-test "test/test1.v"
