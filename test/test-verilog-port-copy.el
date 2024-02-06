@@ -98,3 +98,14 @@
                                  (("rst") nil "input" "std_logic" nil "")
                                  (("d") nil "input" "std_logic" nil "")
                                  (("q") nil "output" "std_logic" nil "")) nil))
+
+(port-copy-test "test/test8.v"
+                '("mux"
+                  ((("N") nil "" nil "\n")
+                   (("W") nil "" nil "\n")
+                   (("BR") nil "" nil "\n")
+                   (("ADRB") nil "" nil "\n"))
+                  ((("clk") nil "input" "std_logic" nil "")
+                   (("din") nil "input" "std_logic_vector" nil "")
+                   (("adr") nil "input" "std_logic_vector" nil "")
+                   (("dout") nil "output" "std_logic_vector" nil "")) nil))
