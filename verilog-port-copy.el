@@ -77,6 +77,7 @@
   "Align columns by ampersand"
   (align-regexp start end "\\(\\s-*\\)(" 1 1 nil))
 
+;;;###autoload
 (defun verilog--align-ports ()
   (interactive)
   "Align verilog ports at point."
