@@ -77,6 +77,10 @@
   "Align columns by ampersand"
   (align-regexp start end "\\(\\s-*\\)(" 1 1 nil))
 
+(defun verilog--align-comment (start end)
+  "Align columns by ampersand"
+  (align-regexp start end "\\(\\s-*\\)\/\/" 1 1 nil))
+
 ;;;###autoload
 (defun verilog--align-ports ()
   (interactive)
@@ -84,7 +88,8 @@
   (save-excursion
     (beginning-of-line)
     (er/expand-region 2)
-    (verilog--align-paren (region-beginning) (region-end))))
+    (verilog--align-paren (region-beginning) (region-end)))
+    (verilog--align-comment (region-beginning) (region-end)))
 
 ;;------------------------------------------------------------------------------
 ;; Module Extraction
