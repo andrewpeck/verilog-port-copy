@@ -88,10 +88,12 @@
   "Align verilog ports at point."
   (interactive)
   (save-excursion
-    (beginning-of-line)
-    (er/mark-inside-pairs)
-    (verilog--align-paren (region-beginning) (region-end))
-    (verilog--align-comment (region-beginning) (region-end))))
+    (dolist (f '(verilog--align-paren verilog--align-comment))
+      (beginning-of-line)
+      (er/mark-inside-pairs)
+      (funcall f (region-beginning) (region-end))
+      (deactivate-mark))))
+
 
 ;;------------------------------------------------------------------------------
 ;; Module Extraction
