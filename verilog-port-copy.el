@@ -91,6 +91,7 @@
     (dolist (f '(verilog--align-paren verilog--align-comment))
       (beginning-of-line)
       (er/mark-inside-pairs)
+      (goto-char (region-beginning))
       (funcall f (region-beginning) (region-end))
       (deactivate-mark))))
 
