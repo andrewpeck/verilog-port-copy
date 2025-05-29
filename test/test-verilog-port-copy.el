@@ -118,3 +118,11 @@
                   ((("clk") nil "input" "std_logic" nil "")
                    (("din") nil "input" "std_logic_vector" nil "")
                    (("dout") nil "output" "std_logic" nil "")) nil))
+
+(port-copy-test "test/test10.v"
+                '("reset_synchronizer"
+                  ((("RESET_POLARITY") nil "" nil "\n")
+                   (("DEPTH") nil "" nil "\n"))
+                  ((("clk") nil "input" "std_logic" nil "")
+                   (("rst_in") nil "input" "std_logic" nil "")
+                   (("rst_out") nil "output" "std_logic" nil "")) nil))

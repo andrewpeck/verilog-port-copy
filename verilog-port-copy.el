@@ -189,7 +189,7 @@ module with comments and newlines removed."
                       (concat
 
                        ;; get the type
-                       "\\([[:blank:]]parameter[[:blank:]]int[[:blank:]]\\|[[:blank:]]parameter[[:blank:]]\\|[[:blank:]]string[[:blank:]]\\|[[:blank:]]real[[:blank:]]\\|[[:blank:]]int[[:blank:]]\\|[[:blank:]]\\)" ;; could also have logic I think, anything else?
+                       "\\([[:blank:]]parameter[[:blank:]]int[[:blank:]]\\|[[:blank:]]parameter[[:blank:]]\\|[[:blank:]]logic[[:blank:]]\\|[[:blank:]]string[[:blank:]]\\|[[:blank:]]real[[:blank:]]\\|[[:blank:]]int[[:blank:]]\\|[[:blank:]]\\)" ;; could also have logic I think, anything else?
 
                        ;; get the range
                        "\\(\\[[^]]*\\]\\s-*\\)?"
