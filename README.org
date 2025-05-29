@@ -1,11 +1,30 @@
 #+OPTIONS: toc:3 author:nil
 #+TITLE: Verilog Port Copy
 
-This is a half-baked module which provides a small subset of the functionality of the ~vhdl-port-*~ functions.
+This is a partially finished package which provides a small subset of the functionality of the ~vhdl-port-*~ functions.
 
-More functionality is planned over time but the main goal is to be able to make instantiation templates for:
+I use this package almost daily and it works very well for me, but is a bit rough around the edges.
+
+The goal is to be able to make instantiation templates for:
 
 - verilog --> vhdl
 - verilog --> verilog
 - vhdl --> vhdl
 - vhdl --> verilog
+
+** Usage
+
+- ~verilog-port-copy~ with the point inside a Verilog module will copy the module interface
+- ~verilog-port-paste-instance~ will paste an instance in Verilog
+- ~vhdl-port-paste-instance~  (from VHDL mode) will paste an instance in VHDL
+- ~vhdl-port-copy~  (from VHDL mode) will copy a VHDL module interface
+
+The Verilog and VHDL functions interfaces into the same variables so they are intercompatible.
+
+** Limitations
+
+- Verilog syntax is very inconsistent, not all constructs are supported well. I add test cases and fixes as I find them but haven't verified across a large number of files.
+- Port sizes (e.g. for ~std_logic_vector~ with ranges are not faithfully copied)
+- Probably more...
+
+Despite its limitations it works quite well across a large variety of modules I've tested with. There's a bit of a selection bias there since the modules I write generally conform to my style of writing them and I've worked around many of the corner cases that I introduce myself.
