@@ -109,3 +109,12 @@
                    (("din") nil "input" "std_logic_vector" nil "")
                    (("adr") nil "input" "std_logic_vector" nil "")
                    (("dout") nil "output" "std_logic_vector" nil "")) nil))
+
+(port-copy-test "test/test9.v"
+                '("reducer"
+                  ((("N") nil "" nil "\n")
+                   (("BRANCH_SIZE") nil "" nil "\n")
+                   (("OP") nil "" nil "\n"))
+                  ((("clk") nil "input" "std_logic" nil "")
+                   (("din") nil "input" "std_logic_vector" nil "")
+                   (("dout") nil "output" "std_logic" nil "")) nil))

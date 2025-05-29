@@ -1,6 +1,6 @@
 ;;; verilog-port-copy.el --- Functions for working with verilog files -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2023-2024 Andrew Peck
+;; Copyright (C) 2023-2025 Andrew Peck
 
 ;; Author: Andrew Peck <peckandrew@gmail.com>
 ;; URL: https://github.com/andrewpeck/verilog-port-copy
@@ -189,7 +189,7 @@ module with comments and newlines removed."
                       (concat
 
                        ;; get the type
-                       "\\([[:blank:]]parameter[[:blank:]]int[[:blank:]]\\|[[:blank:]]parameter[[:blank:]]\\|[[:blank:]]real[[:blank:]]\\|[[:blank:]]int[[:blank:]]\\|[[:blank:]]\\)" ;; could also have logic I think, anything else?
+                       "\\([[:blank:]]parameter[[:blank:]]int[[:blank:]]\\|[[:blank:]]parameter[[:blank:]]\\|[[:blank:]]string[[:blank:]]\\|[[:blank:]]real[[:blank:]]\\|[[:blank:]]int[[:blank:]]\\|[[:blank:]]\\)" ;; could also have logic I think, anything else?
 
                        ;; get the range
                        "\\(\\[[^]]*\\]\\s-*\\)?"
