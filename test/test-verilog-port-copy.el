@@ -30,18 +30,18 @@
                    (("t1") nil "output" "std_logic" nil "")
                    (("t2") nil "output" "std_logic" nil "")) nil))
 
-;; (port-copy-test "test/test2.v"
-;;                 '("get_trig_vals_lut_tables_1_rom"
-;;                   ((("someparam") nil "" nil "\n")
-;;                    (("AWIDTH") nil "" nil "\n")
-;;                    (("MEMSIZE") nil "" nil "\n"))
-;;                   ((("addr0") nil "input" "std_logic_vector" nil "")
-;;                    (("ce0") nil "input" "std_logic" nil "")
-;;                    (("q0") nil "output" "std_logic_vector" nil "")
-;;                    (("addr0") nil "input" "std_logic_vector" nil "")
-;;                    (("ce1") nil "input" "std_logic" nil "")
-;;                    (("q1") nil "output" "std_logic_vector" nil "")
-;;                    (("clk") nil "input" "std_logic" nil "")) nil))
+(port-copy-test "test/test2.v"
+                '("get_trig_vals_lut_tables_1_rom"
+                  ((("someparam") nil "" nil "\n")
+                   (("AWIDTH") nil "" nil "\n")
+                   (("MEMSIZE") nil "" nil "\n"))
+                  ((("addr0") nil "input" "std_logic_vector" nil "")
+                   (("ce0") nil "input" "std_logic" nil "")
+                   (("q0") nil "output" "std_logic_vector" nil "")
+                   (("addr1") nil "input" "std_logic_vector" nil "")
+                   (("ce1") nil "input" "std_logic" nil "")
+                   (("q1") nil "output" "std_logic_vector" nil "")
+                   (("clk") nil "input" "std_logic" nil "")) nil))
 
 (port-copy-test "test/test3.v"
                 '("some_obfusticated_module"
