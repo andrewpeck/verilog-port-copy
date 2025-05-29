@@ -1,6 +1,6 @@
 module distrip # (int x)
   (
-  input       clock;
+  input       clock,
   input [9:0] qn_m2,
   input [9:0] qn_m1,
   input [9:0] qn,
