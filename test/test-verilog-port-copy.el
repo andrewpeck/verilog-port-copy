@@ -4,12 +4,14 @@
 (require 'ert)
 
 (defmacro port-copy-test (file port-list)
-  `(ert-deftest ,(intern file)
-       nil
+  `(ert-deftest ,(intern file) nil
      (should (equal
               ,port-list
-              (progn (find-file (concat (vc-root-dir) ,file)) (verilog-port-copy) vhdl-port-list)))))
-
+              (progn (find-file (concat (locate-dominating-file "." ".git") ,file))
+                     (goto-char (point-min))
+                     (verilog-port-copy)
+                     (kill-buffer nil)
+                     vhdl-port-list)))))
 
 (port-copy-test "test/test1.v"
                 '("distrip"
