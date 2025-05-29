@@ -353,7 +353,8 @@ GROUP-COMMENT is ???"
 
       (setq vhdl-port-list (list name generic-list port-list context-clause)
             vhdl-port-reversed-direction nil
-            vhdl-port-flattened nil))))
+            vhdl-port-flattened nil)
+      (message (concat "Verilog module `" name "' copied.")))))
 
 ;;;###autoload
 (defun verilog-port-paste-instance ()
