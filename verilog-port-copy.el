@@ -108,6 +108,7 @@
 
   (save-excursion
 
+    (beginning-of-line)
     ;; forward word so it works on module itself.
     (when (string= "module" (symbol-at-point))
       (forward-word 2))
