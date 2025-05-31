@@ -1,19 +1,17 @@
 module distrip # (int x)
   (
-  input       clock,
-  input [9:0] qn_m2,
+  input       clock, input [9:0] qn_m2,
   input [9:0] qn_m1,
   input [9:0] qn,
   input [9:0] qn_p1,
   input [9:0] qn_p2,
   input [9:0] qn_p3,
-  input [9:0] vth,
-
-  input       bypass_t5,
-  input       bypass_t4,
+  input[9:0] vth,
+  input wire  bypass_t5,
+  input  var  bypass_t4,
   input       bypass_t3,
 
-  output      distrip_out,
+  output  reg distrip_out,
   output      t0,
   output      t1,
   output      t2

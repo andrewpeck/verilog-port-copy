@@ -17,7 +17,8 @@
                 '("distrip"
                   ((("x") nil "" nil "\n")
                    (("test") nil "3" nil "\n"))
-                  ((("qn_m2") nil "input" "std_logic_vector" nil "")
+                  ((("clock") nil "input" "std_logic" nil "")
+                   (("qn_m2") nil "input" "std_logic_vector" nil "")
                    (("qn_m1") nil "input" "std_logic_vector" nil "")
                    (("qn") nil "input" "std_logic_vector" nil "")
                    (("qn_p1") nil "input" "std_logic_vector" nil "")
@@ -34,9 +35,8 @@
 
 (port-copy-test "test/test2.v"
                 '("get_trig_vals_lut_tables_1_rom"
-                  ((("someparam") nil "" nil "\n")
-                   (("AWIDTH") nil "" nil "\n")
-                   (("MEMSIZE") nil "" nil "\n"))
+                  ((("someparam") nil "" nil "\n") (("AWIDTH") nil "8" nil "\n")
+                   (("MEM_SIZE") nil "7" nil "\n"))
                   ((("addr0") nil "input" "std_logic_vector" nil "")
                    (("ce0") nil "input" "std_logic" nil "")
                    (("q0") nil "output" "std_logic_vector" nil "")

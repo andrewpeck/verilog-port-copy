@@ -48,13 +48,17 @@
 
 (require 'vhdl-mode)
 (require 'cl-lib)
-(require 'expand-region)
+;; (require 'expand-region)
 
+;; try rewriting with svinst?
+;; or add a full parser?
+
+(defvar verilog-port-copy-verbose t
+  "Set to non-nil for more diagnostic output during port copy.")
 
 ;;------------------------------------------------------------------------------
 ;; Constants
 ;;------------------------------------------------------------------------------
-
 
 (defconst verilog--identifier-re
   "[a-zA-Z_][a-zA-Z_0-9]*"
@@ -95,7 +99,42 @@
       (funcall f (region-beginning) (region-end))
       (deactivate-mark))))
 
+(defun vhdl-entity-to-verilog ()
+  "Convert in place a VHDL entity into a verilog entity."
+  (interactive)
 
+  (save-excursion
+    (narrow-to-region (region-beginning) (region-end))
+
+    (goto-char (point-min))
+    (while (search-forward "=>" nil t)
+      (replace-match "(" nil t))
+
+    (goto-char (point-min))
+    (while (search-forward "--" nil t)
+      (replace-match "//" nil t))
+
+    (goto-char (point-min))
+    (while (search-forward "generic map" nil t)
+      (replace-match ") #" nil t))
+
+    (goto-char (point-min))
+    (while (search-forward "port map" nil t)
+      (replace-match "" nil t))
+
+    (goto-char (point-min))
+    (while (search-forward "," nil t)
+      (replace-match ")," nil t))
+
+    (goto-char (point-min))
+    (while (search-forward "'0'" nil t)
+      (replace-match "1'b0" nil t))
+
+    (goto-char (point-min))
+    (while (search-forward "'1'" nil t)
+      (replace-match "1'b1" nil t))
+
+    (widen)))
 ;;------------------------------------------------------------------------------
 ;; Module Extraction
 ;;------------------------------------------------------------------------------
@@ -189,11 +228,14 @@ module with comments and newlines removed."
               (while (re-search-forward
                       (concat
 
+                       ;;
+                       "[[:blank:]]?"
+
                        ;; get the type
-                       "\\([[:blank:]]parameter[[:blank:]]int[[:blank:]]\\|[[:blank:]]parameter[[:blank:]]\\|[[:blank:]]logic[[:blank:]]\\|[[:blank:]]string[[:blank:]]\\|[[:blank:]]real[[:blank:]]\\|[[:blank:]]int[[:blank:]]\\|[[:blank:]]\\)" ;; could also have logic I think, anything else?
+                       "\\(parameter[[:blank:]]int\\|parameter\\|logic\\|string\\|real\\|int\\)?" ;; could also have logic I think, anything else?
 
                        ;; get the range
-                       "\\(\\[[^]]*\\]\\s-*\\)?"
+                       "\s*\\(\\[[^]]*\\]\\s-*\\)?"
                        ;; "\\(" verilog-range-re "\\)?" ;; range?
 
                        ;; get the name
@@ -215,6 +257,7 @@ module with comments and newlines removed."
                       (name (match-string 3))
                       (default "")) ; just ignore defaults for now.. need a real parser for this (match-string 4)
 
+                  (message (format "parameter name = %s" name))
                   (push (verilog--format-generic name :generic-init default) parameters)))))))
 
 
@@ -304,35 +347,85 @@ GROUP-COMMENT is ???"
 
       (goto-char (point-min))
 
+      ;; collect all of the ports
+      (while (re-search-forward
+              (concat
+               "\\(\s+\\)"                    ; 1 = delimeter
+               "\\(input\\|output\\|inout\\)" ; 2 = direction
+               "\\(\s+\\|\\[\\)"              ; 3 = delimeter
+               "\\([^,;]*\\)"                 ; 4 = body
+               "\\(,\\|;\\|);\\)") nil t 1)   ; 5 = termination
+
+        (let ((port (concat (match-string 2) (match-string 3) (match-string 4)))
+              (direction (match-string 2))
+              (name nil)
+              (bitstring nil))
+
+
+          (cond ((string-match
+                  (concat
+                   "\\(input\\|output\\|inout\\)\s*"    ; 1 = direction
+                   "\\(reg\\|logic\\|wire\\|var\\)?\s*" ; 2 = type
+                   "\\(\\[[^]]+:[^]]+\\]\\)\s?"         ; 3 == bit range
+                   "\\([0-9A-z_]+\\)\s?"                ; 4 == name
+                   "\\(\\[[^]]+:?[^]]*\\]\\)?\s?" ; 5 == 2nd dimension of a range
+                   ) port)
+                 (setq name (match-string 4 port))
+                 (setq bitstring (match-string 3 port))
+                 (when verilog-port-copy-verbose
+                   (message port)
+                   (message (format " > %s" name))))
+
+                ((string-match
+                  ;; single dimension ports, e.g.
+                  ;;   input clock
+                  ;;   input reg clock
+                  ;;   input var clock
+                  ;;   input wire clock
+                  (concat
+                   "\\(input\\|output\\|inout\\)" ; 1 = direction
+                   "\s*"
+                   "\\(reg\\|logic\\|wire\\|var\\)?" ; 2 = type
+                   "\s*"
+                   "\\([0-9A-Za-z_]+\\)" ; 3 == name
+                   "\s*") port)
+                 (setq name (match-string 3 port))
+                 (when verilog-port-copy-verbose
+                   (message port)
+                   (message (format " > %s" name)))))
+
+          (when (and name direction)
+            (let* ((port-type (if bitstring "std_logic_vector" "std_logic"))
+                   (port-entry (verilog--format-port name :port-direct direction :port-type port-type)))
+              (push port-entry ports )))))
+
+      (reverse ports)
+
       ;; get buses
-      (goto-char (point-min))
-      (while
-          (re-search-forward
-           (concat
-            "\s+"
-            "\\(input\\|output\\|inout\\)+\s?"   ; direction
-            "\\(reg\\|logic\\|wire\\|var\\)?\s?" ; type
-            "\\(\\[[^]]+:[^]]+\\]\\)?\s?"        ; bit range?
-            "\\([0-9A-z_]+\\)\s?"                ; name
-            "\\(\\[[^]]+:?[^]]*\\]\\)?\s?"       ; 2nd dimension of a range
-            "\\(,\\|)\s*;\\)")
-           nil t 1)
+      ;; (goto-char (point-min))
+      ;; (while
+      ;;     (re-search-forward
+      ;;      (concat
+      ;;       "\s+"
+      ;;       "\\(input\\|output\\|inout\\)\s?"    ; direction
+      ;;       "\\(reg\\|logic\\|wire\\|var\\)?\s?" ; type
+      ;;       "\\(\\[[^]]+:[^]]+\\]\\)\s?"         ; bit range?
+      ;;       "\\([0-9A-z_]+\\)\s?"                ; name
+      ;;       "\\(\\[[^]]+:?[^]]*\\]\\)?\s?" ; Optional 2nd dimension of a range
+      ;;       "\\(,\\|)\s*;\\|;\\)")
+      ;;      nil t 1)
 
-        (let* ((direction (match-string 1))
-               (bitstring (match-string 3))
-               (name (match-string 4))
-               (bitrange (when bitstring (split-string bitstring "\\[\\|:\\|\\]" t)))
-               (bithi  (when bitrange (car bitrange)))
-               (bitlo (when bitrange (cadr bitrange)))
-               (port-type (if (and bithi bitlo)
-                              "std_logic_vector"
-                            "std_logic"))
-               (port-entry (verilog--format-port name
-                                                 :port-direct direction
-                                                 :port-type port-type)))
-          (push port-entry ports )))
+      ;;   (let* ((direction (match-string 1))
+      ;;          (bitstring (match-string 3))
+      ;;          (name (match-string 4))
+      ;;          (bitrange (when bitstring (split-string bitstring "\\[\\|:\\|\\]" t)))
+      ;;          (bithi  (when bitrange (car bitrange)))
+      ;;          (bitlo (when bitrange (cadr bitrange)))
+      ;;          (port-type (if (and bithi bitlo) "std_logic_vector" "std_logic"))
+      ;;          (port-entry (verilog--format-port name :port-direct direction :port-type port-type)))
+      ;;     (push port-entry ports )))
 
-      (reverse ports))))
+      )))
 
 ;;-----------------------------------------------------------------------------
 ;; Entrypoints
