@@ -232,7 +232,7 @@ module with comments and newlines removed."
                        "[[:blank:]]?"
 
                        ;; get the type
-                       "\\(parameter[[:blank:]]int\\|parameter\\|logic\\|string\\|real\\|int\\)?" ;; could also have logic I think, anything else?
+                       "\\(parameter[[:blank:]]integer\\|parameter[[:blank:]]int\\|parameter\\|logic\\|string\\|real\\|int\\)?" ;; could also have logic I think, anything else?
 
                        ;; get the range
                        "\s*\\(\\[[^]]*\\]\\s-*\\)?"
@@ -366,15 +366,17 @@ GROUP-COMMENT is ???"
                   (concat
                    "\\(input\\|output\\|inout\\)\s*"    ; 1 = direction
                    "\\(reg\\|logic\\|wire\\|var\\)?\s*" ; 2 = type
-                   "\\(\\[[^]]+:[^]]+\\]\\)\s?"         ; 3 == bit range
-                   "\\([0-9A-z_]+\\)\s?"                ; 4 == name
+                   "\\(unsigned\\|signed\\)?"           ; 3 == sign
+                   "\s*"
+                   "\\(\\[[^]]+:[^]]+\\]\\)\s?"         ; 4 == bit range
+                   "\\([0-9A-z_]+\\)\s?"                ; 5 == name
                    "\\(\\[[^]]+:?[^]]*\\]\\)?\s?" ; 5 == 2nd dimension of a range
                    ) port)
-                 (setq name (match-string 4 port))
-                 (setq bitstring (match-string 3 port))
+                 (setq name (match-string 5 port))
+                 (setq bitstring (match-string 4 port))
                  (when verilog-port-copy-verbose
                    (message port)
-                   (message (format " > %s" name))))
+                   (message (format " > multidimensional port %s" name))))
 
                 ((string-match
                   ;; single dimension ports, e.g.
@@ -387,12 +389,14 @@ GROUP-COMMENT is ???"
                    "\s*"
                    "\\(reg\\|logic\\|wire\\|var\\)?" ; 2 = type
                    "\s*"
+                   "\\(unsigned\\|signed\\)?"           ; 3 == sign
+                   "\s*"
                    "\\([0-9A-Za-z_]+\\)" ; 3 == name
                    "\s*") port)
-                 (setq name (match-string 3 port))
+                 (setq name (match-string 4 port))
                  (when verilog-port-copy-verbose
                    (message port)
-                   (message (format " > %s" name)))))
+                   (message (format " > 1d port %s" name)))))
 
           (when (and name direction)
             (let* ((port-type (if bitstring "std_logic_vector" "std_logic"))

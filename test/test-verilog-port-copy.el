@@ -9,6 +9,7 @@
               ,port-list
               (progn (find-file (concat (locate-dominating-file "." ".git") ,file))
                      (goto-char (point-min))
+                     (re-search-forward "module")
                      (verilog-port-copy)
                      (kill-buffer nil)
                      vhdl-port-list)))))
@@ -141,3 +142,9 @@
                    (("data_o") nil "output" "std_logic_vector" nil "")
                    (("metadata_o") nil "output" "std_logic_vector" nil "")
                    (("updating_o") nil "output" "std_logic_vector" nil "")) nil))
+
+(port-copy-test "test/test12.v"
+                '("adder" ((("DATA_WIDTH") nil "" nil "\n"))
+                  ((("A") nil "input" "std_logic_vector" nil "")
+                   (("B") nil "input" "std_logic_vector" nil "")
+                   (("X") nil "output" "std_logic_vector" nil "")) nil))
