@@ -128,3 +128,16 @@
                   ((("clk") nil "input" "std_logic" nil "")
                    (("rst_in") nil "input" "std_logic" nil "")
                    (("rst_out") nil "output" "std_logic" nil "")) nil))
+
+(port-copy-test "test/test11.v"
+                '("cell_sort"
+                  ((("SORTB") nil "" nil "\n") (("METAB") nil "" nil "\n")
+                   (("DEPTH") nil "" nil "\n") (("REV") nil "" nil "\n"))
+                  ((("clk") nil "input" "std_logic" nil "")
+                   (("rst") nil "input" "std_logic" nil "")
+                   (("data_i") nil "input" "std_logic_vector" nil "")
+                   (("metadata_i") nil "input" "std_logic_vector" nil "")
+                   (("dav_i") nil "input" "std_logic" nil "")
+                   (("data_o") nil "output" "std_logic_vector" nil "")
+                   (("metadata_o") nil "output" "std_logic_vector" nil "")
+                   (("updating_o") nil "output" "std_logic_vector" nil "")) nil))
