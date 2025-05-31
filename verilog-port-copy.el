@@ -296,7 +296,7 @@ module with comments and newlines removed."
                          ("'o" 8)
                          ("'d" 10)
                          ("'h" 16)
-                         (x 10)))
+                         (_    10)))
                (val  (format "%s" (string-to-number (match-string 4) radix))))
 
 
