@@ -257,7 +257,9 @@ module with comments and newlines removed."
                       (name (match-string 3))
                       (default "")) ; just ignore defaults for now.. need a real parser for this (match-string 4)
 
-                  (message (format "parameter name = %s" name))
+                  (when verilog-port-copy-verbose
+                    (message (format "parameter name = %s" name)))
+
                   (push (verilog--format-generic name :generic-init default) parameters)))))))
 
 
@@ -403,33 +405,7 @@ GROUP-COMMENT is ???"
                    (port-entry (verilog--format-port name :port-direct direction :port-type port-type)))
               (push port-entry ports )))))
 
-      (reverse ports)
-
-      ;; get buses
-      ;; (goto-char (point-min))
-      ;; (while
-      ;;     (re-search-forward
-      ;;      (concat
-      ;;       "\s+"
-      ;;       "\\(input\\|output\\|inout\\)\s?"    ; direction
-      ;;       "\\(reg\\|logic\\|wire\\|var\\)?\s?" ; type
-      ;;       "\\(\\[[^]]+:[^]]+\\]\\)\s?"         ; bit range?
-      ;;       "\\([0-9A-z_]+\\)\s?"                ; name
-      ;;       "\\(\\[[^]]+:?[^]]*\\]\\)?\s?" ; Optional 2nd dimension of a range
-      ;;       "\\(,\\|)\s*;\\|;\\)")
-      ;;      nil t 1)
-
-      ;;   (let* ((direction (match-string 1))
-      ;;          (bitstring (match-string 3))
-      ;;          (name (match-string 4))
-      ;;          (bitrange (when bitstring (split-string bitstring "\\[\\|:\\|\\]" t)))
-      ;;          (bithi  (when bitrange (car bitrange)))
-      ;;          (bitlo (when bitrange (cadr bitrange)))
-      ;;          (port-type (if (and bithi bitlo) "std_logic_vector" "std_logic"))
-      ;;          (port-entry (verilog--format-port name :port-direct direction :port-type port-type)))
-      ;;     (push port-entry ports )))
-
-      )))
+      (reverse ports))))
 
 ;;-----------------------------------------------------------------------------
 ;; Entrypoints
