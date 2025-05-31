@@ -99,42 +99,6 @@
       (funcall f (region-beginning) (region-end))
       (deactivate-mark))))
 
-(defun vhdl-entity-to-verilog ()
-  "Convert in place a VHDL entity into a verilog entity."
-  (interactive)
-
-  (save-excursion
-    (narrow-to-region (region-beginning) (region-end))
-
-    (goto-char (point-min))
-    (while (search-forward "=>" nil t)
-      (replace-match "(" nil t))
-
-    (goto-char (point-min))
-    (while (search-forward "--" nil t)
-      (replace-match "//" nil t))
-
-    (goto-char (point-min))
-    (while (search-forward "generic map" nil t)
-      (replace-match ") #" nil t))
-
-    (goto-char (point-min))
-    (while (search-forward "port map" nil t)
-      (replace-match "" nil t))
-
-    (goto-char (point-min))
-    (while (search-forward "," nil t)
-      (replace-match ")," nil t))
-
-    (goto-char (point-min))
-    (while (search-forward "'0'" nil t)
-      (replace-match "1'b0" nil t))
-
-    (goto-char (point-min))
-    (while (search-forward "'1'" nil t)
-      (replace-match "1'b1" nil t))
-
-    (widen)))
 ;;------------------------------------------------------------------------------
 ;; Module Extraction
 ;;------------------------------------------------------------------------------
