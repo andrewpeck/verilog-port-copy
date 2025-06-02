@@ -88,7 +88,7 @@
   (align-regexp start end "\\(\\s-*\\)\/\/" 1 1 nil))
 
 ;;;###autoload
-(defun verilog--align-ports ()
+(defun verilog-align-ports ()
   "Align verilog ports at point."
   (interactive)
   (save-excursion
@@ -439,7 +439,7 @@ GROUP-COMMENT is ???"
       (insert ");")
 
       (beginning-of-line)
-      (save-excursion (verilog--align-ports))
+      (save-excursion (verilog-align-ports))
       (end-of-line))))
 
 (provide 'verilog-port-copy)
