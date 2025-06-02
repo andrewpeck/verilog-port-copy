@@ -60,18 +60,18 @@
 ;; Constants
 ;;------------------------------------------------------------------------------
 
-(defconst verilog--identifier-re
+(defconst verilog-port-copy--identifier-re
   "[a-zA-Z_][a-zA-Z_0-9]*"
   "Regular expression for a verilog-port-copy identifier (a name).")
 
-(defconst verilog--module-and-port-regexp
+(defconst verilog-port-copy--module-and-port-regexp
   (concat "module\s+"
           "\\([A-z]+[A-z0-9_]*\\)\s*" ; module name
           "\s*\\(#[[:blank:]]?(.*)\\)?"           ; verilog2001 style parameters #()
           "\\(\s*(.*);\\)")
   "Regexp to extract a module name and port list from a Verilog2001 style file.")
 
-(defconst verilog--module-regexp
+(defconst verilog-port-copy--module-regexp
   "module\s+\\([A-z0-9_]+\\)"
   "Regexp to extract a verilog module name.")
 
@@ -79,12 +79,12 @@
 ;; Alignment
 ;;------------------------------------------------------------------------------
 
-(defun verilog--align-paren (start end)
-  "Align columns by ampersand"
+(defun verilog-port-copy--align-paren (start end)
+  "Align columns by ampersand between START and END."
   (align-regexp start end "\\(\\s-*\\)(" 1 1 nil))
 
-(defun verilog--align-comment (start end)
-  "Align columns by trailing comment"
+(defun verilog-port-copy--align-comment (start end)
+  "Align columns by trailing comment between START and END."
   (align-regexp start end "\\(\\s-*\\)\/\/" 1 1 nil))
 
 ;;;###autoload
@@ -92,7 +92,7 @@
   "Align verilog ports at point."
   (interactive)
   (save-excursion
-    (dolist (f '(verilog--align-paren verilog--align-comment))
+    (dolist (f '(verilog-port-copy--align-paren verilog-port-copy--align-comment))
       (beginning-of-line)
       (er/mark-inside-pairs)
       (goto-char (region-beginning))
@@ -103,7 +103,7 @@
 ;; Module Extraction
 ;;------------------------------------------------------------------------------
 
-(defun verilog--get-module-as-string ()
+(defun verilog-port-copy--get-module-as-string ()
 
   "Get a verilog module at point, return it as a string.
 
@@ -116,7 +116,7 @@
     (when (string= "module" (symbol-at-point))
       (forward-word 2))
 
-    (let* ((start (re-search-backward verilog--module-regexp))
+    (let* ((start (re-search-backward verilog-port-copy--module-regexp))
            (end   (re-search-forward "endmodule")) ; FIXME: make sure this is not in a comment
            (module (buffer-substring-no-properties start end)))
 
@@ -126,18 +126,18 @@
 
       module)))
 
-(defun verilog--get-module-name ()
+(defun verilog-port-copy--get-module-name ()
   "Get the name of the Verilog module at point in the currently opened buffer."
   (save-excursion
     (forward-line 1)
-    (when  (re-search-backward verilog--module-regexp)
+    (when  (re-search-backward verilog-port-copy--module-regexp)
       (match-string-no-properties 1))))
 
 ;;-----------------------------------------------------------------------------
 ;; Parameters
 ;;-----------------------------------------------------------------------------
 
-(cl-defun verilog--format-generic
+(cl-defun verilog-port-copy--format-generic
     (name &key generic-type generic-init
           generic-comment group-comment)
 
@@ -158,7 +158,7 @@
         generic-type generic-init generic-comment group-comment))
 
 
-(defun verilog--parse-generics (module)
+(defun verilog-port-copy--parse-generics (module)
 
   "Return verilog parameters from a MODULE.
 
@@ -176,7 +176,7 @@ module with comments and newlines removed."
     (let ((parameters nil))
 
 
-      (when (re-search-forward verilog--module-and-port-regexp nil t)
+      (when (re-search-forward verilog-port-copy--module-and-port-regexp nil t)
 
         (let ((ansi-port-str (match-string 2)))
           (when ansi-port-str
@@ -203,7 +203,7 @@ module with comments and newlines removed."
                        ;; "\\(" verilog-range-re "\\)?" ;; range?
 
                        ;; get the name
-                       "\\(" verilog--identifier-re "\\)"
+                       "\\(" verilog-port-copy--identifier-re "\\)"
 
                        ;; has a value?
                        "\s*=?\s*"
@@ -216,15 +216,15 @@ module with comments and newlines removed."
                       nil t)
 
 
-                (let ((type (match-string 1))
-                      (range (match-string 2))
-                      (name (match-string 3))
+                (let ((_ (match-string 1))    ; type
+                      (_ (match-string 2))    ; range
+                      (name (match-string 3)) ; name
                       (default "")) ; just ignore defaults for now.. need a real parser for this (match-string 4)
 
                   (when verilog-port-copy-verbose
                     (message (format "parameter name = %s" name)))
 
-                  (push (verilog--format-generic name :generic-init default) parameters)))))))
+                  (push (verilog-port-copy--format-generic name :generic-init default) parameters)))))))
 
 
       ;; TODO: these regexps can be combined
@@ -238,7 +238,7 @@ module with comments and newlines removed."
                "\s*;") nil t)
         (let ((name (match-string 1))
               (val nil))
-          (push (verilog--format-generic name :generic-init val) parameters)))
+          (push (verilog-port-copy--format-generic name :generic-init val) parameters)))
 
       ;; get initialized params, e.g. "parameter MXCNT = 12;"
       (goto-char (point-min))
@@ -264,7 +264,7 @@ module with comments and newlines removed."
                (val  (format "%s" (string-to-number (match-string 4) radix))))
 
 
-          (push (verilog--format-generic name :generic-init val) parameters)))
+          (push (verilog-port-copy--format-generic name :generic-init val) parameters)))
 
       (reverse parameters))))
 
@@ -274,7 +274,7 @@ module with comments and newlines removed."
 ;;------------------------------------------------------------------------------
 
 
-(cl-defun verilog--format-port (name &key port-object port-direct
+(cl-defun verilog-port-copy--format-port (name &key port-object port-direct
                                      port-type port-comment group-comment)
 
   "Format a port following the structure specified in vhdl-mode.el.
@@ -301,9 +301,9 @@ GROUP-COMMENT is ???"
 
   (list (list name) port-object port-direct port-type port-comment group-comment))
 
-(defun verilog--parse-ports (module)
+(defun verilog-port-copy--parse-ports (module)
 
-  ""
+  "Parse and extract a list of ports of the verilog MODULE at point."
 
   (with-temp-buffer
 
@@ -366,7 +366,7 @@ GROUP-COMMENT is ???"
 
           (when (and name direction)
             (let* ((port-type (if bitstring "std_logic_vector" "std_logic"))
-                   (port-entry (verilog--format-port name :port-direct direction :port-type port-type)))
+                   (port-entry (verilog-port-copy--format-port name :port-direct direction :port-type port-type)))
               (push port-entry ports )))))
 
       (reverse ports))))
@@ -383,10 +383,10 @@ GROUP-COMMENT is ???"
   (interactive)
   (save-excursion ; Save point, and current buffer; execute BODY; restore those things.
 
-    (let* ((module (verilog--get-module-as-string))
-           (name (verilog--get-module-name))
-           (generic-list (verilog--parse-generics module))
-           (port-list (verilog--parse-ports module))
+    (let* ((module (verilog-port-copy--get-module-as-string))
+           (name (verilog-port-copy--get-module-name))
+           (generic-list (verilog-port-copy--parse-generics module))
+           (port-list (verilog-port-copy--parse-ports module))
            (context-clause nil))
 
       (setq vhdl-port-list (list name generic-list port-list context-clause)
@@ -421,7 +421,7 @@ GROUP-COMMENT is ???"
         (insert ")"))
 
       ;; (beginning-of-line)
-      ;; (save-excursion (verilog--align-ports))
+      ;; (save-excursion (verilog-port-copy--align-ports))
       ;; (end-of-line)
 
       ;; instance name
