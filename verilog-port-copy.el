@@ -1,6 +1,6 @@
 ;;; verilog-port-copy.el --- Functions for working with verilog files -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2023-2025 Andrew Peck
+;; Copyright (C) 2023-2026 Andrew Peck
 
 ;; Author: Andrew Peck <peckandrew@gmail.com>
 ;; URL: https://github.com/andrewpeck/verilog-port-copy
@@ -48,7 +48,6 @@
 
 (require 'vhdl-mode)
 (require 'cl-lib)
-;; (require 'expand-region)
 
 ;; try rewriting with svinst?
 ;; or add a full parser?
@@ -91,6 +90,7 @@
 (defun verilog-align-ports ()
   "Align verilog ports at point."
   (interactive)
+  (require 'expand-region)
   (save-excursion
     (dolist (f '(verilog-port-copy--align-paren verilog-port-copy--align-comment))
       (beginning-of-line)
