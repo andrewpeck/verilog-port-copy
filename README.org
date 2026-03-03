@@ -28,3 +28,7 @@ The Verilog and VHDL functions interfaces into the same variables so they are in
 - Probably more...
 
 Despite its limitations it works quite well across a large variety of modules I've tested with. There's a bit of a selection bias there since the modules I write generally conform to my style of writing them and I've worked around many of the corner cases that I introduce myself.
+
+** Test
+
+Can be tested with ~make test-ert~.

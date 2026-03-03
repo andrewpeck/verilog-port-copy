@@ -3,7 +3,7 @@
 # * makem.sh --- Script to aid building and testing Emacs Lisp packages
 
 # URL: https://github.com/alphapapa/makem.sh
-# Version: 0.7-pre
+# Version: 0.8-pre
 
 # * Commentary:
 
@@ -114,9 +114,9 @@ specified with options.  Package dependencies are discovered from
 from a Cask file.
 
 Checkdoc's spell checker may not recognize some words, causing the
-`lint-checkdoc' rule to fail.  Custom words can be added in file-local
+\`lint-checkdoc' rule to fail.  Custom words can be added in file-local
 or directory-local variables using the variable
-`ispell-buffer-session-localwords', which should be set to a list of
+\`ispell-buffer-session-localwords', which should be set to a list of
 strings.
 EOF
 }
@@ -130,8 +130,10 @@ function elisp-buttercup-file {
     # The function buttercup-run, which is called by buttercup-run-discover,
     # signals an error if it can't find any Buttercup test suites.  We don't
     # want that to be an error, so we define advice which ignores that error.
-    local file=$(mktemp)
-    cat >$file <<EOF
+    if ! [[ $elisp_buttercup_file ]]
+    then
+        elisp_buttercup_file=$(mktemp --tmpdir --suffix=".el" "makem-elisp-buttercup-file-XXX")
+        cat >"$elisp_buttercup_file" <<EOF
 (defun makem-buttercup-run (oldfun &rest r)
   "Call buttercup-run only if \`buttercup-suites' is non-nil."
   (when buttercup-suites
@@ -139,12 +141,15 @@ function elisp-buttercup-file {
 
 (advice-add #'buttercup-run :around #'makem-buttercup-run)
 EOF
-    echo $file
+    fi
+    echo "$elisp_buttercup_file"
 }
 
 function elisp-elint-file {
-    local file=$(mktemp)
-    cat >$file <<EOF
+    if ! [[ $elisp_elint_file ]]
+    then
+        elisp_elint_file=$(mktemp --tmpdir --suffix=".el" "makem-elisp-elint-file-XXX")
+        cat >"$elisp_elint_file" <<EOF
 (require 'cl-lib)
 (require 'elint)
 (defun makem-elint-file (file)
@@ -160,15 +165,17 @@ function elisp-elint-file {
       ;; it's incremented for non-error header strings as well.
       (kill-emacs errors))))
 EOF
-    echo "$file"
+    fi
+    echo "$elisp_elint_file"
 }
 
 function elisp-checkdoc-file {
     # Since checkdoc doesn't have a batch function that exits non-zero
     # when errors are found, we make one.
-    local file=$(mktemp)
-
-    cat >$file <<EOF
+    if ! [[ $elisp_checkdoc_file ]]
+    then
+        elisp_checkdoc_file=$(mktemp --tmpdir --suffix=".el"  "makem-elisp-checkdoc-file-XXX")
+        cat >"$elisp_checkdoc_file" <<EOF
 (defvar makem-checkdoc-errors-p nil)
 
 (defun makem-checkdoc-files-and-exit ()
@@ -191,18 +198,19 @@ function elisp-checkdoc-file {
 (setq checkdoc-spellcheck-documentation-flag t)
 (makem-checkdoc-files-and-exit)
 EOF
-    echo $file
+    fi
+    echo "$elisp_checkdoc_file"
 }
 
 function elisp-byte-compile-file {
     # This seems to be the only way to make byte-compilation signal
     # errors for warnings AND display all warnings rather than only
     # the first one.
-    local file=$(mktemp)
-    # TODO: Add file to $paths_temp in other elisp- functions.
-    paths_temp+=("$file")
-
-    cat >"$file" <<EOF
+    if ! [[ $elisp_byte_compile_file ]]
+    then
+        elisp_byte_compile_file=$(mktemp --tmpdir --suffix=".el" "makem-elisp-byte-compile-file-XXX")
+        # TODO: Add file to $paths_temp in other elisp- functions.
+        cat >"$elisp_byte_compile_file" <<EOF
 (defun makem-batch-byte-compile (&rest args)
   ""
   (let ((num-errors 0)
@@ -218,33 +226,26 @@ function elisp-byte-compile-file {
   "Call \`byte-compile-warn', returning the number of errors and the number of warnings."
   (let ((num-warnings 0)
         (num-errors 0))
-    (cl-letf (((symbol-function 'byte-compile-warn)
-               (lambda (format &rest args)
-                 ;; Copied from \`byte-compile-warn'.
-                 (cl-incf num-warnings)
-                 (setq format (apply #'format-message format args))
-                 (byte-compile-log-warning format t :warning)))
-              ((symbol-function 'byte-compile-report-error)
-               (lambda (error-info &optional fill &rest args)
-                 (cl-incf num-errors)
-                 ;; Copied from \`byte-compile-report-error'.
-                 (setq byte-compiler-error-flag t)
-                 (byte-compile-log-warning
-                  (if (stringp error-info) error-info
-                    (error-message-string error-info))
-                  fill :error))))
+    (let ((byte-compile-log-warning-function
+           (lambda (string position fill level)
+             (pcase-exhaustive level
+               (:warning (cl-incf num-warnings))
+               (:error (cl-incf num-errors)))
+             (byte-compile--log-warning-for-byte-compile string position fill level))))
       (byte-compile-file filename load))
     (list num-errors num-warnings)))
 EOF
-    echo "$file"
+    fi
+    echo "$elisp_byte_compile_file"
 }
 
 function elisp-check-declare-file {
     # Since check-declare doesn't have a batch function that exits
     # non-zero when errors are found, we make one.
-    local file=$(mktemp)
-
-    cat >$file <<EOF
+    if ! [[ $elisp_check_declare_file ]]
+    then
+        elisp_check_declare_file=$(mktemp --tmpdir --suffix=".el" "makem-elisp-check-declare-file-XXX")
+        cat >"$elisp_check_declare_file" <<EOF
 (require 'check-declare)
 
 (defun makem-check-declare-files-and-exit ()
@@ -256,15 +257,17 @@ function elisp-check-declare-file {
         (print (buffer-string)))
       (kill-emacs 1))))
 EOF
-    echo $file
+    fi
+    echo "$elisp_check_declare_file"
 }
 
 function elisp-lint-indent-file {
     # This function prints warnings for indentation errors and exits
     # non-zero when errors are found.
-    local file=$(mktemp)
-
-    cat >"$file" <<EOF
+    if ! [[ $elisp_lint_indent_file ]]
+    then
+        elisp_lint_indent_file=$(mktemp --tmpdir --suffix=".el" "makem-elisp-lint-indent-file-XXX")
+        cat >"$elisp_lint_indent_file" <<EOF
 (require 'cl-lib)
 
 (defun makem-lint-indent-batch-and-exit ()
@@ -295,22 +298,23 @@ Exits non-zero if mis-indented lines are found.  Checks files in
       (when errors-p
         (kill-emacs 1)))))
 EOF
-
-    echo "$file"
+    fi
+    echo "$elisp_lint_indent_file"
 }
 
 function elisp-package-initialize-file {
-    local file=$(mktemp)
-
-    cat >$file <<EOF
+    if ! [[ $elisp_package_initialize_file ]]
+    then
+        elisp_package_initialize_file=$(mktemp --tmpdir --suffix=".el" "makem-elisp-package-initialize-file-XXX")
+        cat >"$elisp_package_initialize_file" <<EOF
 (require 'package)
 (setq package-archives (list (cons "gnu" "https://elpa.gnu.org/packages/")
                              (cons "melpa" "https://melpa.org/packages/")
                              (cons "melpa-stable" "https://stable.melpa.org/packages/")))
-$elisp_org_package_archive
 (package-initialize)
 EOF
-    echo $file
+    fi
+    echo "$elisp_package_initialize_file"
 }
 
 # ** Emacs
@@ -324,7 +328,6 @@ function run_emacs {
         --eval "(setq load-prefer-newer t)"
         "${args_debug[@]}"
         "${args_sandbox[@]}"
-        -l $package_initialize_file
         $arg_batch
         "${args_load_paths[@]}"
     )
@@ -337,7 +340,7 @@ function run_emacs {
                     2>&1)
 
     # Set output file.
-    output_file=$(mktemp) || die "Unable to make output file."
+    output_file=$(mktemp --tmpdir --suffix=".txt" "makem-emacs-output-XXX") || die "Unable to make output file."
     paths_temp+=("$output_file")
 
     # Run Emacs.
@@ -363,7 +366,7 @@ function batch-byte-compile {
     [[ $compile_error_on_warn ]] && local error_on_warn=(--eval "(setq byte-compile-error-on-warn t)")
 
     run_emacs \
-        --load "$(elisp-byte-compile-file)" \
+        --load "$elisp_byte_compile_file" \
         "${error_on_warn[@]}" \
         --eval "(unless (makem-batch-byte-compile) (kill-emacs 1))" \
         "$@"
@@ -377,7 +380,7 @@ function byte-compile-file {
 
     # FIXME: Why is the line starting with "&& verbose 3" not indented properly?  Emacs insists on indenting it back a level.
     run_emacs \
-        --load "$(elisp-byte-compile-file)" \
+        --load "$elisp_byte_compile_file" \
         "${error_on_warn[@]}" \
         --eval "(pcase-let ((\`(,num-errors ,num-warnings) (makem-byte-compile-file \"$file\"))) (when (or (and byte-compile-error-on-warn (not (zerop num-warnings))) (not (zerop num-errors))) (kill-emacs 1)))" \
         && verbose 3 "Compiling $file finished without errors." \
@@ -403,11 +406,11 @@ function project-root {
 }
 
 function files-project {
-    # Return a list of files in project; or with $1, files in it
-    # matching that pattern.  Excludes submodules.
+    # Echo a list of files in project; or with $1, files in it
+    # matching that pattern with "git ls-files".  Excludes submodules.
     [[ $1 ]] && pattern="/$1" || pattern="."
 
-    local excludes
+    local excludes=()
     for submodule in $(submodules)
     do
         excludes+=(":!:$submodule")
@@ -425,7 +428,7 @@ function dirs-project {
 function files-project-elisp {
     # Echo list of Elisp files in project.
     files-project 2>/dev/null \
-        | egrep "\.el$" \
+        | grep -E "\.el$" \
         | filter-files-exclude-default \
         | filter-files-exclude-args
 }
@@ -452,7 +455,7 @@ function dirnames {
 
 function filter-files-exclude-default {
     # Filter out paths (STDIN) which should be excluded by default.
-    grep -E -v "(/\.cask/|-autoloads.el|.dir-locals)"
+    grep -E -v "(/\.cask/|-autoloads\.el|\.dir-locals)"
 }
 
 function filter-files-exclude-args {
@@ -596,7 +599,7 @@ function sandbox {
         fi
     else
         # Not given: make temp directory, and delete it on exit.
-        local sandbox_dir=$(mktemp -d) || die "Unable to make sandbox dir."
+        local sandbox_dir=$(mktemp --tmpdir -d "makem-emacs-sandbox-dir-XXX") || die "Unable to make sandbox dir."
         paths_temp+=("$sandbox_dir")
     fi
 
@@ -607,7 +610,6 @@ function sandbox {
     args_sandbox=(
         --title "makem.sh: $(basename $(pwd)) (sandbox: $sandbox_dir)"
         --eval "(setq user-emacs-directory (file-truename \"$sandbox_dir\"))"
-        --load package
         --eval "(setq package-user-dir (expand-file-name \"elpa\" user-emacs-directory))"
         --eval "(setq user-init-file (file-truename \"$init_file\"))"
     )
@@ -617,6 +619,9 @@ function sandbox {
     then
         local deps=($(dependencies))
         debug "Installing dependencies: ${deps[@]}"
+
+        # Ensure built-in packages get upgraded to newer versions from ELPA.
+        args_sandbox_package_install+=(--eval "(setq package-install-upgrade-built-in t)")
 
         for package in "${deps[@]}"
         do
@@ -643,6 +648,8 @@ function sandbox {
         verbose 1 "Installing packages into sandbox..."
 
         run_emacs \
+            --eval "(setq package-user-dir (expand-file-name \"elpa\" user-emacs-directory))" \
+            -l "$elisp_package_initialize_file" \
             --eval "(package-refresh-contents)" \
             "${args_sandbox_package_install[@]}" \
             && success "Packages installed." \
@@ -652,11 +659,25 @@ function sandbox {
     verbose 2 "Sandbox initialized."
 }
 
+function args-load-path-sandbox {
+    # Echo list of Emacs arguments to add paths of packages installed
+    # in sandbox to load-path.
+    if ! [[ -d "$sandbox_dir/elpa" ]]
+    then
+        warn "Sandbox's \"elpa/\" directory not found: no packages installed."
+    else
+        for path in $(find "$sandbox_dir/elpa" -maxdepth 1 -type d -not -name "archives" -print \
+                          | tail -n+2)
+        do
+            printf -- '-L %q ' "$path"
+        done
+    fi
+}
+
 # ** Utility
 
 function cleanup {
     # Remove temporary paths (${paths_temp[@]}).
-
     for path in "${paths_temp[@]}"
     do
         if [[ $debug ]]
@@ -751,6 +772,10 @@ function error {
 function die {
     [[ $@ ]] && error "$@"
     exit $errors
+}
+function warn {
+    echo_color yellow "WARNING ($(ts)): $@" >&2
+    ((warnings++))
 }
 function log {
     echo "LOG ($(ts)): $@" >&2
@@ -905,11 +930,8 @@ function lint {
 function lint-checkdoc {
     verbose 1 "Linting checkdoc..."
 
-    local checkdoc_file="$(elisp-checkdoc-file)"
-    paths_temp+=("$checkdoc_file")
-
     run_emacs \
-        --load="$checkdoc_file" \
+        --load="$elisp_checkdoc_file" \
         "${files_project_feature[@]}" \
         && success "Linting checkdoc finished without errors." \
             || error "Linting checkdoc failed."
@@ -928,11 +950,8 @@ function lint-compile {
 function lint-declare {
     verbose 1 "Linting declarations..."
 
-    local check_declare_file="$(elisp-check-declare-file)"
-    paths_temp+=("$check_declare_file")
-
     run_emacs \
-        --load "$check_declare_file" \
+        --load "$elisp_check_declare_file" \
         -f makem-check-declare-files-and-exit \
         "${files_project_feature[@]}" \
         && success "Linting declarations finished without errors." \
@@ -964,7 +983,7 @@ function lint-elint {
     do
         verbose 2 "Linting with Elint: $file..."
         run_emacs \
-            --load "$(elisp-elint-file)" \
+            --load "$elisp_elint_file" \
             --eval "(makem-elint-file \"$file\")" \
             && verbose 3 "Linting with Elint found no errors." \
                 || { error "Linting with Elint failed: $file"; ((errors++)) ; }
@@ -1041,12 +1060,9 @@ function test-buttercup {
 
     verbose 1 "Running Buttercup tests..."
 
-    local buttercup_file="$(elisp-buttercup-file)"
-    paths_temp+=("$buttercup_file")
-
     run_emacs \
         $(args-load-files "${files_project_test[@]}") \
-        --load "$buttercup_file" \
+        --load "$elisp_buttercup_file" \
         --eval "(progn (setq backtrace-on-error-noninteractive nil) (buttercup-run))" \
         && success "Buttercup tests finished without errors." \
             || error "Buttercup tests failed."
@@ -1072,6 +1088,8 @@ test_files_regexp='^((tests?|t)/)|-tests?.el$|^test-'
 
 emacs_command=("emacs")
 errors=0
+# TODO: Do something with number of warnings?
+warnings=0
 verbose=0
 compile=true
 arg_batch="--batch"
@@ -1121,21 +1139,15 @@ args_package_archives=(
     --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t)"
 )
 
-args_org_package_archives=(
-    --eval "(add-to-list 'package-archives '(\"org\" . \"https://orgmode.org/elpa/\") t)"
-)
-
 args_package_init=(
     --eval "(package-initialize)"
 )
 
-elisp_org_package_archive="(add-to-list 'package-archives '(\"org\" . \"https://orgmode.org/elpa/\") t)"
-
 # * Args
 
 args=$(getopt -n "$0" \
-              -o dhce:E:i:s::vf:CO \
-              -l compile-batch,exclude:,emacs:,install-deps,install-linters,debug,debug-load-path,help,install:,verbose,file:,no-color,no-compile,no-org-repo,sandbox:: \
+              -o dhce:E:i:s::vf:C \
+              -l compile-batch,exclude:,emacs:,install-deps,install-linters,debug,debug-load-path,help,install:,verbose,file:,no-color,no-compile,sandbox:: \
               -- "$@") \
     || { usage; exit 1; }
 eval set -- "$args"
@@ -1199,9 +1211,6 @@ do
             shift
             args_files+=("$1")
             ;;
-        -O|--no-org-repo)
-            unset elisp_org_package_archive
-            ;;
         --no-color)
             unset color
             ;;
@@ -1222,9 +1231,27 @@ done
 debug "ARGS: $args"
 debug "Remaining args: ${rest[@]}"
 
-# Set package elisp (which depends on --no-org-repo arg).
-package_initialize_file="$(elisp-package-initialize-file)"
-paths_temp+=("$package_initialize_file")
+# Elisp load files (output these once only).
+elisp_buttercup_file=$(elisp-buttercup-file)
+elisp_elint_file=$(elisp-elint-file)
+elisp_checkdoc_file=$(elisp-checkdoc-file)
+elisp_byte_compile_file=$(elisp-byte-compile-file)
+elisp_check_declare_file=$(elisp-check-declare-file)
+elisp_lint_indent_file=$(elisp-lint-indent-file)
+elisp_package_initialize_file=$(elisp-package-initialize-file)
+
+# Since those variables' values come from functions called in
+# subshells, those functions can't assign to the global value of
+# paths_temp, so we add their values in this loop (this is a bit
+# messy, but Bash scripting makes this awkward).
+variable_names=(elisp_buttercup_file elisp_elint_file
+                elisp_checkdoc_file elisp_byte_compile_file
+                elisp_check_declare_file elisp_lint_indent_file
+                elisp_package_initialize_file)
+for var in "${variable_names[@]}"
+do
+    paths_temp+=("${!var}")
+done
 
 # * Main
 
@@ -1259,7 +1286,6 @@ fi
 
 # Set load path.
 args_load_paths=($(args-load-path))
-debug "LOAD PATH ARGS: ${args_load_paths[@]}"
 
 # If rules include linters and sandbox-dir is unspecified, install
 # linters automatically.
@@ -1270,7 +1296,12 @@ then
 fi
 
 # Initialize sandbox.
-[[ $sandbox ]] && sandbox
+[[ $sandbox ]] && {
+    sandbox
+    args_load_paths+=($(args-load-path-sandbox))
+}
+
+debug "LOAD PATH ARGS: ${args_load_paths[@]}"
 
 # Run rules.
 for rule in "${rest[@]}"
