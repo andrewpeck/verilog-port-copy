@@ -400,47 +400,47 @@ GROUP-COMMENT is ???"
   "Paste as an Verilog instantiation."
 
   (interactive)
-  (if (not vhdl-port-list)
-      (error "ERROR:  No port read")
-    (let ((module-name (car vhdl-port-list))
-          (generics (cadr vhdl-port-list))
-          (ports (caddr vhdl-port-list)))
+  (unless vhdl-port-list
+    (user-error "ERROR:  No port read"))
+  (let ((module-name (car vhdl-port-list))
+        (generics (cadr vhdl-port-list))
+        (ports (caddr vhdl-port-list)))
 
-      (insert module-name)
+    (insert module-name)
 
-      ;; insert generics
-      (when generics
-        (insert " #(\n")
+    ;; insert generics
+    (when generics
+      (insert " #(\n")
 
-        (dolist (generic generics)
-          (let ((gname (caar generic)))
-            (insert (format "  .%s(%s),\n" gname gname))))
-        ;; remove the last comma and newline
-        (delete-char -2)
+      (dolist (generic generics)
+        (let ((gname (caar generic)))
+          (insert (format "  .%s(%s),\n" gname gname))))
+      ;; remove the last comma and newline
+      (delete-char -2)
 
-        (insert ")"))
+      (insert ")"))
 
-      ;; (beginning-of-line)
-      ;; (save-excursion (verilog-port-copy--align-ports))
-      ;; (end-of-line)
+    ;; (beginning-of-line)
+    ;; (save-excursion (verilog-port-copy--align-ports))
+    ;; (end-of-line)
 
-      ;; instance name
-      (insert (format "\nu_%s (\n" module-name))
+    ;; instance name
+    (insert (format "\nu_%s (\n" module-name))
 
-      ;; insert ports
-      (when ports
-        (dolist (port ports)
-          (let ((gname (caar port)))
-            (insert (format "  .%s(%s),\n" gname gname))))
-        ;; remove the last comma and newline
-        (delete-char -2))
+    ;; insert ports
+    (when ports
+      (dolist (port ports)
+        (let ((gname (caar port)))
+          (insert (format "  .%s(%s),\n" gname gname))))
+      ;; remove the last comma and newline
+      (delete-char -2))
 
-      ;; close
-      (insert ");")
+    ;; close
+    (insert ");")
 
-      (beginning-of-line)
-      (save-excursion (verilog-align-ports))
-      (end-of-line))))
+    (beginning-of-line)
+    (save-excursion (verilog-align-ports))
+    (end-of-line)))
 
 (provide 'verilog-port-copy)
 ;;; verilog-port-copy.el ends here
