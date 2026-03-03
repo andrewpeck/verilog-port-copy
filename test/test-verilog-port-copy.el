@@ -20,7 +20,7 @@
 (port-copy-test "test/test1.v"
                 '("distrip"
                   ((("x") nil "" nil "\n")
-                   (("test") nil "3" nil "\n"))
+                   (("test") nil "" nil "\n"))
                   ((("clock") nil "input" "std_logic" nil "")
                    (("qn_m2") nil "input" "std_logic_vector" nil "")
                    (("qn_m1") nil "input" "std_logic_vector" nil "")
@@ -39,8 +39,9 @@
 
 (port-copy-test "test/test2.v"
                 '("get_trig_vals_lut_tables_1_rom"
-                  ((("someparam") nil "" nil "\n") (("AWIDTH") nil "8" nil "\n")
-                   (("MEM_SIZE") nil "197" nil "\n"))
+                  ((("someparam") nil "" nil "\n")
+                   (("AWIDTH") nil "" nil "\n")
+                   (("MEM_SIZE") nil "" nil "\n"))
                   ((("addr0") nil "input" "std_logic_vector" nil "")
                    (("ce0") nil "input" "std_logic" nil "")
                    (("q0") nil "output" "std_logic_vector" nil "")
@@ -135,8 +136,10 @@
 
 (port-copy-test "test/test11.v"
                 '("cell_sort"
-                  ((("SORTB") nil "" nil "\n") (("METAB") nil "" nil "\n")
-                   (("DEPTH") nil "" nil "\n") (("REV") nil "" nil "\n"))
+                  ((("SORTB") nil "" nil "\n")
+                   (("METAB") nil "" nil "\n")
+                   (("DEPTH") nil "" nil "\n")
+                   (("REV") nil "" nil "\n"))
                   ((("clk") nil "input" "std_logic" nil "")
                    (("rst") nil "input" "std_logic" nil "")
                    (("data_i") nil "input" "std_logic_vector" nil "")

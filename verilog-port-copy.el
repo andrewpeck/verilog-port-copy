@@ -5,7 +5,7 @@
 ;; Author: Andrew Peck <peckandrew@gmail.com>
 ;; URL: https://github.com/andrewpeck/verilog-port-copy
 ;; Version: 0.0.1
-;; Package-Requires: ((emacs "27.1") (expand-region "0.11"))
+;; Package-Requires: ((emacs "29.1") (expand-region "0.11"))
 ;; Keywords: tools vhdl verilog
 
 ;; This file is not part of GNU Emacs.
@@ -28,8 +28,8 @@
 ;; `vhdl-mode' provides a fanstastic feature of being able to copy a port at
 ;; point, and paste an instantiation template.
 ;;
-;; This provides some buggy extensions that allow doing the same thing from
-;; Verilog and Systemverilog.
+;; This provides some tree-sitter based commands that allow doing the same
+;; thing from Verilog.
 ;;
 ;; It uses the existing data structure of `vhdl-mode' so this provides
 ;;
@@ -48,31 +48,7 @@
 
 (require 'vhdl-mode)
 (require 'cl-lib)
-
-;; try rewriting with svinst?
-;; or add a full parser?
-
-(defvar verilog-port-copy-verbose t
-  "Set to non-nil for more diagnostic output during port copy.")
-
-;;------------------------------------------------------------------------------
-;; Constants
-;;------------------------------------------------------------------------------
-
-(defconst verilog-port-copy--identifier-re
-  "[a-zA-Z_][a-zA-Z_0-9]*"
-  "Regular expression for a verilog-port-copy identifier (a name).")
-
-(defconst verilog-port-copy--module-and-port-regexp
-  (concat "module\s+"
-          "\\([A-z]+[A-z0-9_]*\\)\s*" ; module name
-          "\s*\\(#[[:blank:]]?(.*)\\)?"           ; verilog2001 style parameters #()
-          "\\(\s*(.*);\\)")
-  "Regexp to extract a module name and port list from a Verilog2001 style file.")
-
-(defconst verilog-port-copy--module-regexp
-  "module\s+\\([A-z0-9_]+\\)"
-  "Regexp to extract a verilog module name.")
+(require 'treesit)
 
 ;;------------------------------------------------------------------------------
 ;; Alignment
@@ -99,46 +75,48 @@
       (funcall f (region-beginning) (region-end))
       (deactivate-mark))))
 
-;;------------------------------------------------------------------------------
-;; Module Extraction
-;;------------------------------------------------------------------------------
+;;-----------------------------------------------------------------------------
+;; Tree-sitter helpers
+;;-----------------------------------------------------------------------------
 
-(defun verilog-port-copy--get-module-as-string ()
+(defun verilog-port-copy--ts-find (node type)
+  "Return the first descendant of NODE (inclusive) with node type TYPE."
+  (when node
+    (treesit-search-subtree node (lambda (n) (string= (treesit-node-type n) type)))))
 
-  "Get a verilog module at point, return it as a string.
+(defun verilog-port-copy--ts-find-all (node type)
+  "Return all descendants of NODE with node type TYPE, in document order."
+  (mapcar #'cdr (treesit-query-capture node (format "(%s) @cap" type))))
 
-   Comments and newlines will be removed."
+(defun verilog-port-copy--ts-ancestor-p (node type)
+  "Return t if NODE has any ancestor with node type TYPE."
+  (when-let* ((parent (treesit-node-parent node)))
+    (or (string= (treesit-node-type parent) type)
+        (verilog-port-copy--ts-ancestor-p parent type))))
 
-  (save-excursion
-
-    (end-of-line)
-    ;; forward word so it works on module itself.
-    (when (string= "module" (symbol-at-point))
-      (forward-word 2))
-
-    (let* ((start (re-search-backward verilog-port-copy--module-regexp))
-           (end   (re-search-forward "endmodule")) ; FIXME: make sure this is not in a comment
-           (module (buffer-substring-no-properties start end)))
-
-      (setq module (replace-regexp-in-string "\/\/.*\n" "" module))
-      (setq module (replace-regexp-in-string "\n" " " module))
-      (setq module (replace-regexp-in-string "\s\s+" " " module))
-
-      module)))
-
-(defun verilog-port-copy--get-module-name ()
-  "Get the name of the Verilog module at point in the currently opened buffer."
-  (save-excursion
-    (forward-line 1)
-    (when  (re-search-backward verilog-port-copy--module-regexp)
-      (match-string-no-properties 1))))
+(defun verilog-port-copy--module-at-point ()
+  "Return the node spanning the module at point, or nil.
+Normally this is a module_declaration node.  When the grammar cannot
+parse the module (e.g. due to unsupported syntax in parameter defaults)
+tree-sitter produces an ERROR node containing a module_header instead;
+that ERROR node is returned as a fallback so callers can still extract
+whatever information the partial tree contains."
+  (treesit-parser-create 'verilog)
+  (treesit-search-subtree
+   (treesit-buffer-root-node 'verilog)
+   (lambda (node)
+     (and (<= (treesit-node-start node) (point))
+          (<= (point) (treesit-node-end node))
+          (or (string= (treesit-node-type node) "module_declaration")
+              (and (string= (treesit-node-type node) "ERROR")
+                   (verilog-port-copy--ts-find node "module_header")))))))
 
 ;;-----------------------------------------------------------------------------
 ;; Parameters
 ;;-----------------------------------------------------------------------------
 
 (cl-defun verilog-port-copy--format-generic
-    (name &key generic-type generic-init
+    (name &key generic-type (generic-init "")
           generic-comment group-comment)
 
   "Format verilog generic NAME.
@@ -150,124 +128,58 @@
 
     ((generic-names) generic-type generic-init generic-comment group-comment)"
 
-
-  (when (not group-comment)
-    (setq group-comment "\n"))
-
   (list (list name)
-        generic-type generic-init generic-comment group-comment))
+        generic-type
+        generic-init
+        generic-comment
+        (or group-comment "\n")))
 
+(defun verilog-port-copy--parse-generics (module-node)
+  "Return verilog parameters from MODULE-NODE.
 
-(defun verilog-port-copy--parse-generics (module)
+MODULE-NODE is a module_declaration tree-sitter node."
+  (reverse (append
+            (verilog-port-copy--parse-generics-non-ansi module-node)
+            (verilog-port-copy--parse-generics-ansi module-node))))
 
-  "Return verilog parameters from a MODULE.
+(defun verilog-port-copy--parse-generics-ansi (module-node)
+  "Return ANSI verilog parameters from MODULE-NODE.
 
-A MODULE should be a string with the entire contents of the
-module with comments and newlines removed."
+ANSI-style parameters in #(...)
 
+MODULE-NODE is a module_declaration tree-sitter node."
+  (let ((parameters nil))
+    (when-let* ((ppl (verilog-port-copy--ts-find module-node "parameter_port_list")))
+      (dolist (pa (verilog-port-copy--ts-find-all ppl "param_assignment"))
+        (when-let* ((id   (verilog-port-copy--ts-find pa "parameter_identifier"))
+                    (name (let ((text (treesit-node-text id)))
+                            (if (string-empty-p text)
+                                ;; Grammar misread bare "NAME = VALUE" as
+                                ;; data_type="NAME"; recover from grandparent ppd.
+                                (treesit-node-text
+                                 (verilog-port-copy--ts-find
+                                  (verilog-port-copy--ts-find
+                                   (treesit-node-parent (treesit-node-parent pa))
+                                   "data_type")
+                                  "simple_identifier"))
+                              text))))
+          (push (verilog-port-copy--format-generic name) parameters))))
+    parameters))
 
+(defun verilog-port-copy--parse-generics-non-ansi (module-node)
+  "Return verilog parameters from MODULE-NODE.
 
-  (with-temp-buffer
-
-    (insert module)
-
-    (goto-char (point-min))
-
-    (let ((parameters nil))
-
-
-      (when (re-search-forward verilog-port-copy--module-and-port-regexp nil t)
-
-        (let ((ansi-port-str (match-string 2)))
-          (when ansi-port-str
-            (with-temp-buffer
-
-              (insert ansi-port-str)
-              (goto-char (point-min))
-
-              ;; get ansi params e.g. in #()
-
-              (goto-char (point-min))
-
-              (while (re-search-forward
-                      (concat
-
-                       ;;
-                       "[[:blank:]]?"
-
-                       ;; get the type
-                       "\\(parameter[[:blank:]]integer\\|parameter[[:blank:]]int\\|parameter\\|logic\\|string\\|real\\|int\\)?" ;; could also have logic I think, anything else?
-
-                       ;; get the range
-                       "\s*\\(\\[[^]]*\\]\\s-*\\)?"
-                       ;; "\\(" verilog-range-re "\\)?" ;; range?
-
-                       ;; get the name
-                       "\\(" verilog-port-copy--identifier-re "\\)"
-
-                       ;; has a value?
-                       "\s*=?\s*"
-
-                       ;; get the value
-                       "\\([^,]+\\|)\s*(\\)?"
-
-                       ;; close
-                       "\s*,?\\(\s*)\s*;\\)?")
-                      nil t)
-
-
-                (let ((_ (match-string 1))    ; type
-                      (_ (match-string 2))    ; range
-                      (name (match-string 3)) ; name
-                      (default "")) ; just ignore defaults for now.. need a real parser for this (match-string 4)
-
-                  (when verilog-port-copy-verbose
-                    (message (format "parameter name = %s" name)))
-
-                  (push (verilog-port-copy--format-generic name :generic-init default) parameters)))))))
-
-
-      ;; TODO: these regexps can be combined
-      ;; get uninitialized params, e.g. "parameter MXCNT;"
-      (goto-char (point-min))
-
-      (while (re-search-forward
-              (concat
-               "parameter\s+"    ;;
-               "\\([A-z0-9]+\\)" ;; name
-               "\s*;") nil t)
-        (let ((name (match-string 1))
-              (val nil))
-          (push (verilog-port-copy--format-generic name :generic-init val) parameters)))
-
-      ;; get initialized params, e.g. "parameter MXCNT = 12;"
-      (goto-char (point-min))
-
-      (while (re-search-forward
-              (concat
-               "parameter\s+"           ;
-               "\\([A-z0-9_]+\\)"       ; name
-               "\s*=\s*"                ;
-               "\\([A-z0-9_]+\\)?"      ; number of bits
-               "\\('[bdho]\\)?"         ; radix
-               "\\([0-9A-z,_]+\\)"      ; val
-               "\s*;") nil t)
-
-        ;; account for different radixes, 'h3 / 7'h3 / 3'b10001 etc.
-        (let* ((name (match-string 1))
-               (radix  (pcase  (match-string 3)
-                         ("'b" 2)
-                         ("'o" 8)
-                         ("'d" 10)
-                         ("'h" 16)
-                         (_    10)))
-               (val  (format "%s" (string-to-number (match-string 4) radix))))
-
-
-          (push (verilog-port-copy--format-generic name :generic-init val) parameters)))
-
-      (reverse parameters))))
-
+MODULE-NODE is a module_declaration tree-sitter node."
+  (let ((parameters nil))
+    ;; Body parameters: parameter X; or parameter X = Y;
+    ;; Exclude parameter_declaration nodes that are inside parameter_port_list
+    (dolist (pd (verilog-port-copy--ts-find-all module-node "parameter_declaration"))
+      (unless (verilog-port-copy--ts-ancestor-p pd "parameter_port_list")
+        (dolist (pa (verilog-port-copy--ts-find-all pd "param_assignment"))
+          (when-let* ((id (verilog-port-copy--ts-find pa "parameter_identifier")))
+            (push (verilog-port-copy--format-generic (treesit-node-text id))
+                  parameters)))))
+    parameters))
 
 ;;------------------------------------------------------------------------------
 ;; Ports
@@ -275,7 +187,7 @@ module with comments and newlines removed."
 
 
 (cl-defun verilog-port-copy--format-port (name &key port-object port-direct
-                                     port-type port-comment group-comment)
+                                               port-type port-comment group-comment)
 
   "Format a port following the structure specified in vhdl-mode.el.
 
@@ -296,80 +208,73 @@ PORT-COMMENT is an optional comment string.
 
 GROUP-COMMENT is ???"
 
-  (when (not group-comment)
-    (setq group-comment ""))
+  (list (list name)
+        port-object
+        port-direct
+        port-type
+        port-comment
+        (or group-comment "")))
 
-  (list (list name) port-object port-direct port-type port-comment group-comment))
+(defun verilog-port-copy--parse-ports (module-node)
+  "Parse and extract a list of ports from MODULE-NODE.
 
-(defun verilog-port-copy--parse-ports (module)
+MODULE-NODE is a module_declaration tree-sitter node."
+  (append
+   (verilog-port-copy--parse-ports-ansi module-node)
+   (verilog-port-copy--parse-ports-non-ansi module-node)))
 
-  "Parse and extract a list of ports of the verilog MODULE at point."
+(defun verilog-port-copy--parse-ports-non-ansi (module-node)
+  "Parse and extract a list of ports from MODULE-NODE.
 
-  (with-temp-buffer
+MODULE-NODE is a module_declaration tree-sitter node."
 
-    (insert module)
+  ;; Non-ANSI ports: input_declaration, output_declaration, inout_declaration
+  ;; Merge and sort by document position to preserve declaration order
+  (cl-flet ((find-all-port-type (port-type)
+              ;; provide "input", get all input ports
+              ;; provide "output", get all output ports
+              ;; provide "inout", get all inout ports
+              (mapcar (lambda (n) (cons port-type n))
+                      (verilog-port-copy--ts-find-all module-node
+                                                      (concat port-type "_declaration"))))
+            (compare-node-start (a b)
+              (< (treesit-node-start (cdr a))
+                 (treesit-node-start (cdr b))))
 
-    (let ((ports nil))
+            (format-non-ansi-port (decl)
+              (let* ((dir-str   (car decl))
+                     (node      (cdr decl))
+                     (has-dim   (or (verilog-port-copy--ts-find node "packed_dimension")
+                                    (verilog-port-copy--ts-find node "unpacked_dimension")))
+                     (name-node (car (verilog-port-copy--ts-find-all node "port_identifier"))))
+                (verilog-port-copy--format-port
+                 (treesit-node-text name-node)
+                 :port-direct dir-str
+                 :port-type (if has-dim "std_logic_vector" "std_logic")))))
 
-      (goto-char (point-min))
+    (thread-last (sort (append (find-all-port-type "input")
+                               (find-all-port-type "output")
+                               (find-all-port-type "inout"))
+                       #'compare-node-start)
+                 (mapcar #'format-non-ansi-port))))
 
-      ;; collect all of the ports
-      (while (re-search-forward
-              (concat
-               "\\(\s+\\)"                    ; 1 = delimeter
-               "\\(input\\|output\\|inout\\)" ; 2 = direction
-               "\\(\s+\\|\\[\\)"              ; 3 = delimeter
-               "\\([^,;]*\\)"                 ; 4 = body
-               "\\(,\\|;\\|);\\)") nil t 1)   ; 5 = termination
+(defun verilog-port-copy--parse-ports-ansi (module-node)
+  "Parse and extract a list of ports from MODULE-NODE.
 
-        (let ((port (concat (match-string 2) (match-string 3) (match-string 4)))
-              (direction (match-string 2))
-              (name nil)
-              (bitstring nil))
+ANSI-style ports in list_of_port_declarations
 
-
-          (cond ((string-match
-                  (concat
-                   "\\(input\\|output\\|inout\\)\s*"    ; 1 = direction
-                   "\\(reg\\|logic\\|wire\\|var\\)?\s*" ; 2 = type
-                   "\\(unsigned\\|signed\\)?"           ; 3 == sign
-                   "\s*"
-                   "\\(\\[[^]]+:[^]]+\\]\\)\s?"         ; 4 == bit range
-                   "\\([0-9A-z_]+\\)\s?"                ; 5 == name
-                   "\\(\\[[^]]+:?[^]]*\\]\\)?\s?" ; 5 == 2nd dimension of a range
-                   ) port)
-                 (setq name (match-string 5 port))
-                 (setq bitstring (match-string 4 port))
-                 (when verilog-port-copy-verbose
-                   (message port)
-                   (message (format " > multidimensional port %s" name))))
-
-                ((string-match
-                  ;; single dimension ports, e.g.
-                  ;;   input clock
-                  ;;   input reg clock
-                  ;;   input var clock
-                  ;;   input wire clock
-                  (concat
-                   "\\(input\\|output\\|inout\\)" ; 1 = direction
-                   "\s*"
-                   "\\(reg\\|logic\\|wire\\|var\\)?" ; 2 = type
-                   "\s*"
-                   "\\(unsigned\\|signed\\)?"           ; 3 == sign
-                   "\s*"
-                   "\\([0-9A-Za-z_]+\\)" ; 3 == name
-                   "\s*") port)
-                 (setq name (match-string 4 port))
-                 (when verilog-port-copy-verbose
-                   (message port)
-                   (message (format " > 1d port %s" name)))))
-
-          (when (and name direction)
-            (let* ((port-type (if bitstring "std_logic_vector" "std_logic"))
-                   (port-entry (verilog-port-copy--format-port name :port-direct direction :port-type port-type)))
-              (push port-entry ports )))))
-
-      (reverse ports))))
+MODULE-NODE is a module_declaration tree-sitter node."
+  (cl-flet ((get-and-format-ansi-port (port)
+              (when-let* ((dir-node  (verilog-port-copy--ts-find port "port_direction"))
+                          (name-node (verilog-port-copy--ts-find port "port_identifier")))
+                (verilog-port-copy--format-port
+                 (treesit-node-text name-node)
+                 :port-direct (treesit-node-text dir-node)
+                 :port-type (if (or (verilog-port-copy--ts-find port "packed_dimension")
+                                    (verilog-port-copy--ts-find port "unpacked_dimension"))
+                                "std_logic_vector" "std_logic")))))
+    (thread-last (verilog-port-copy--ts-find-all module-node "ansi_port_declaration")
+                 (mapcar #'get-and-format-ansi-port))))
 
 ;;-----------------------------------------------------------------------------
 ;; Entrypoints
@@ -377,31 +282,32 @@ GROUP-COMMENT is ???"
 
 ;;;###autoload
 (defun verilog-port-copy ()
-
   "Copy the verilog module at point and put its definition into `vhdl-port-list`."
-
   (interactive)
-  (save-excursion ; Save point, and current buffer; execute BODY; restore those things.
-
-    (let* ((module (verilog-port-copy--get-module-as-string))
-           (name (verilog-port-copy--get-module-name))
-           (generic-list (verilog-port-copy--parse-generics module))
-           (port-list (verilog-port-copy--parse-ports module))
-           (context-clause nil))
-
-      (setq vhdl-port-list (list name generic-list port-list context-clause)
+  (let ((module-node (verilog-port-copy--module-at-point)))
+    (unless module-node
+      (user-error "No Verilog module found at point"))
+    (when (string= (treesit-node-type module-node) "ERROR")
+      (user-error "Tree-sitter parse error in module at point; \
+this is likely a limitation of the tree-sitter-verilog grammar"))
+    (let* ((name (or (treesit-node-text (verilog-port-copy--ts-find module-node "module_identifier"))
+                     (treesit-node-text (verilog-port-copy--ts-find
+                                         (verilog-port-copy--ts-find module-node "module_header")
+                                         "simple_identifier"))))
+           (generic-list (verilog-port-copy--parse-generics module-node))
+           (port-list    (verilog-port-copy--parse-ports module-node)))
+      (setq vhdl-port-list (list name generic-list port-list nil)
             vhdl-port-reversed-direction nil
             vhdl-port-flattened nil)
       (message "Verilog module `%s' copied" name))))
 
 ;;;###autoload
-(defun verilog-port-paste-instance ()
-
-  "Paste as an Verilog instantiation."
-
+(defun verilog-port-copy-paste-instance ()
+  "Paste entity as an Verilog instantiation."
   (interactive)
-  (unless vhdl-port-list
-    (user-error "ERROR:  No port read"))
+
+  (unless vhdl-port-list (user-error "ERROR:  No port read"))
+
   (let ((module-name (car vhdl-port-list))
         (generics (cadr vhdl-port-list))
         (ports (caddr vhdl-port-list)))
@@ -419,10 +325,6 @@ GROUP-COMMENT is ???"
       (delete-char -2)
 
       (insert ")"))
-
-    ;; (beginning-of-line)
-    ;; (save-excursion (verilog-port-copy--align-ports))
-    ;; (end-of-line)
 
     ;; instance name
     (insert (format "\nu_%s (\n" module-name))

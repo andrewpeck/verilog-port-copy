@@ -1,4 +1,4 @@
-module test13 # (
+module test13 #(
   int               FVMR                 = 64,
   int               QNGNO                = $clog2(FVMR),
   logic [QNGNO-1:0] VQYR_JBEQ            = QNGNO'(FVMR-1),

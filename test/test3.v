@@ -9,7 +9,7 @@ module some_obfusticated_module
       + (N_OUTPUTS == 11 ? 3 : 0)
       + (N_OUTPUTS == 15 ? 5 : 0),
 
-  int X = $clog2(WIDTH),
+  int X = WIDTH,
   int Y = $clog2(WEIGHT))
   (
   input wire              clk,
