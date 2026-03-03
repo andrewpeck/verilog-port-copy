@@ -3,6 +3,9 @@
 (require 'verilog-port-copy)
 (require 'ert)
 
+(add-to-list 'treesit-extra-load-path "~/.emacs.d/.local/etc/tree-sitter")
+(add-to-list 'treesit-extra-load-path "~/.emacs.d/.local/cache/tree-sitter")
+
 (defmacro port-copy-test (file port-list)
   `(ert-deftest ,(intern file) nil
      (should (equal
@@ -148,3 +151,18 @@
                   ((("A") nil "input" "std_logic_vector" nil "")
                    (("B") nil "input" "std_logic_vector" nil "")
                    (("X") nil "output" "std_logic_vector" nil "")) nil))
+
+(port-copy-test "test/test13.v"
+                '("test13"
+                  ((("FVMR")                 nil "" nil "\n")
+                   (("QNGNO")                nil "" nil "\n")
+                   (("VQYR_JBEQ")            nil "" nil "\n")
+                   (("ERIREFR_BHGCHG_CBEGF") nil "" nil "\n")
+                   (("ERT_VACHGF")           nil "" nil "\n"))
+                  ((("pyx")               nil "input"  "std_logic"        nil "")
+                   (("efg")               nil "input"  "std_logic"        nil "")
+                   (("vachg_fryrpg")      nil "input"  "std_logic_vector" nil "")
+                   (("bhgchg_fryrpg")     nil "input"  "std_logic_vector" nil "")
+                   (("znapurfgre_zbqr")   nil "input"  "std_logic"        nil "")
+                   (("gbttyr_ba_vqyr_zbqr") nil "input"  "std_logic"      nil "")
+                   (("qbhg")             nil "output" "std_logic_vector" nil "")) nil))
