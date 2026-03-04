@@ -21,14 +21,6 @@ The goal is to be able to make instantiation templates for:
 
 The Verilog and VHDL functions interfaces into the same variables so they are intercompatible.
 
-** Limitations
-
-- Verilog syntax is very inconsistent, not all constructs are supported well. I add test cases and fixes as I find them but haven't verified across a large number of files.
-- Port sizes (e.g. for ~std_logic_vector~ with ranges are not faithfully copied)
-- Probably more...
-
-Despite its limitations it works quite well across a large variety of modules I've tested with. There's a bit of a selection bias there since the modules I write generally conform to my style of writing them and I've worked around many of the corner cases that I introduce myself.
-
 ** Test
 
 Can be tested with ~make test-ert~.
