@@ -49,6 +49,7 @@
 (require 'vhdl-mode)
 (require 'cl-lib)
 (require 'treesit)
+(require 'expand-region)
 
 ;;------------------------------------------------------------------------------
 ;; Alignment
@@ -77,7 +78,6 @@
 With prefix argument NO-STRIP, skip stripping trailing spaces before closing
 parentheses (e.g. leave `(clk                 )' as-is)."
   (interactive "P")
-  (require 'expand-region)
   (save-excursion
     (dolist (f `(verilog-port-copy--align-paren
                  ,(unless no-strip
