@@ -71,9 +71,10 @@
     (dolist (f '(verilog-port-copy--align-paren verilog-port-copy--align-comment))
       (beginning-of-line)
       (er/mark-inside-pairs)
-      (goto-char (region-beginning))
-      (funcall f (region-beginning) (region-end))
-      (deactivate-mark))))
+      (let ((start (region-beginning))
+            (end (save-excursion (goto-char (region-end)) (end-of-line) (point))))
+        (deactivate-mark)
+        (funcall f start end)))))
 
 ;;-----------------------------------------------------------------------------
 ;; Tree-sitter helpers
