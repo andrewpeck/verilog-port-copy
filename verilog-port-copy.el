@@ -62,19 +62,34 @@
   "Align columns by trailing comment between START and END."
   (align-regexp start end "\\(\\s-*\\)\/\/" 1 1 nil))
 
+(defun verilog-port-copy--strip-trailing-whitespace (start end)
+  "Strip trailing whitespace from the current region inside matched pairs."
+  (save-restriction
+    (narrow-to-region start end)
+    (goto-char (point-min))
+    (while (re-search-forward " +)" nil t)
+      (unless (nth 4 (syntax-ppss (match-beginning 0)))
+        (replace-match ")" t t)))))
+
 ;;;###autoload
-(defun verilog-align-ports ()
-  "Align verilog ports at point."
-  (interactive)
+(defun verilog-align-ports (&optional no-strip)
+  "Align verilog ports at point.
+With prefix argument NO-STRIP, skip stripping trailing spaces before closing
+parentheses (e.g. leave `(clk                 )' as-is)."
+  (interactive "P")
   (require 'expand-region)
   (save-excursion
-    (dolist (f '(verilog-port-copy--align-paren verilog-port-copy--align-comment))
-      (beginning-of-line)
-      (er/mark-inside-pairs)
-      (let ((start (region-beginning))
-            (end (save-excursion (goto-char (region-end)) (end-of-line) (point))))
-        (deactivate-mark)
-        (funcall f start end)))))
+    (dolist (f `(verilog-port-copy--align-paren
+                 ,(unless no-strip
+                    'verilog-port-copy--strip-trailing-whitespace)
+                 verilog-port-copy--align-comment))
+      (when f
+        (beginning-of-line)
+        (er/mark-inside-pairs)
+        (let ((start (region-beginning))
+              (end (save-excursion (goto-char (region-end)) (end-of-line) (point))))
+          (deactivate-mark)
+          (funcall f start end))))))
 
 ;;-----------------------------------------------------------------------------
 ;; Tree-sitter helpers
