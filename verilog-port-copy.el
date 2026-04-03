@@ -73,16 +73,42 @@
           (end-of-line)
           (replace-match ")" t t)))))
 
+(defun verilog-port-copy--convert-comments (start end)
+  "Convert lines starting with // to /* */ style between START and END."
+  (save-excursion
+    (let ((end-marker (copy-marker end)))
+      (goto-char start)
+      (while (re-search-forward "^\\(\\s-*\\)//\\(.*\\)$" end-marker t)
+        (replace-match "\\1/* \\2 */" t)))))
+
 ;;;###autoload
-(defun verilog-align-ports (&optional no-strip)
+(defun verilog-align-ports (&optional minimal)
   "Align verilog ports at point.
-With prefix argument NO-STRIP, skip stripping trailing spaces before closing
-parentheses (e.g. leave `(clk                 )' as-is)."
+
+With prefix argument MINIMAL this will skip some more opinionated conversions.
+
+1. Skip stripping trailing spaces before closing parentheses, e.g.
+
+`(clk                 )'
+
+does not convert to
+
+`(clk)`.
+
+2. Skip conversion of whole line comments, e.g.
+
+// some comment
+
+does not convert to
+
+/* some comment */"
   (interactive "P")
   (save-excursion
     (dolist (f `(verilog-port-copy--align-paren
-                 ,(unless no-strip
+                 ,(unless minimal
                     'verilog-port-copy--strip-trailing-whitespace)
+                 ,(unless minimal
+                    'verilog-port-copy--convert-comments)
                  verilog-port-copy--align-comment))
       (when f
         (beginning-of-line)
