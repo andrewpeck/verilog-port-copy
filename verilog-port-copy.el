@@ -69,8 +69,9 @@
     (narrow-to-region start end)
     (goto-char (point-min))
     (while (re-search-forward " +)" nil t)
-      (unless (nth 4 (syntax-ppss (match-beginning 0)))
-        (replace-match ")" t t)))))
+      (if (nth 4 (syntax-ppss (match-beginning 0)))
+          (end-of-line)
+          (replace-match ")" t t)))))
 
 ;;;###autoload
 (defun verilog-align-ports (&optional no-strip)
