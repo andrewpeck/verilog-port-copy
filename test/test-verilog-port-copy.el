@@ -3,8 +3,7 @@
 (require 'verilog-port-copy)
 (require 'ert)
 
-(add-to-list 'treesit-extra-load-path "~/.emacs.d/.local/etc/tree-sitter")
-(add-to-list 'treesit-extra-load-path "~/.emacs.d/.local/cache/tree-sitter")
+(add-to-list 'treesit-extra-load-path "./")
 
 (defmacro port-copy-test (file port-list)
   `(ert-deftest ,(intern file) nil
