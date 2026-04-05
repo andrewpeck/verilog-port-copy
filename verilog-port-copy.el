@@ -389,3 +389,4 @@ this is likely a limitation of the tree-sitter-verilog grammar"))
 
 (provide 'verilog-port-copy)
 ;;; verilog-port-copy.el ends here
+;; LocalWords:  whitespace verilog generic-init
