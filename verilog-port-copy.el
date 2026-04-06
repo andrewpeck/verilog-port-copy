@@ -64,7 +64,7 @@
   (align-regexp start end "\\(\\s-*\\)\/\/" 1 1 nil))
 
 (defun verilog-port-copy--strip-trailing-whitespace (start end)
-  "Strip trailing whitespace from the current region inside matched pairs."
+  "Strip trailing whitespace in region between START and END."
   (save-restriction
     (narrow-to-region start end)
     (goto-char (point-min))
@@ -325,8 +325,8 @@ MODULE-NODE is a module_declaration tree-sitter node."
 
 (defun verilog-port-copy--simplify-param-defaults (text)
   "Replace complex parameter defaults with 0 in TEXT.
-Handles =$system_func(...) and =TYPE'(...) cast expressions that
-the tree-sitter-verilog grammar cannot parse."
+Handles system function calls and cast expressions in parameter
+defaults that the tree-sitter-verilog grammar cannot parse."
   (with-temp-buffer
     (insert text)
     (dolist (pattern '("=[ \t]*\\$[a-zA-Z_][a-zA-Z0-9_$]*[ \t]*("
@@ -439,4 +439,4 @@ the tree-sitter-verilog grammar cannot parse."
 
 (provide 'verilog-port-copy)
 ;;; verilog-port-copy.el ends here
-;; LocalWords:  whitespace verilog
+;; LocalWords:  whitespace verilog downto inout el qn func endmodule
