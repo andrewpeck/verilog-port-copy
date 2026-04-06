@@ -71,7 +71,7 @@
     (while (re-search-forward " +)" nil t)
       (if (nth 4 (syntax-ppss (match-beginning 0)))
           (end-of-line)
-          (replace-match ")" t t)))))
+        (replace-match ")" t t)))))
 
 (defun verilog-port-copy--convert-comments (start end)
   "Convert lines starting with // to /* */ style between START and END."
@@ -323,6 +323,50 @@ MODULE-NODE is a module_declaration tree-sitter node."
 ;; Entrypoints
 ;;-----------------------------------------------------------------------------
 
+(defun verilog-port-copy--simplify-param-defaults (text)
+  "Replace complex parameter defaults with 0 in TEXT.
+Handles =$system_func(...) and =TYPE'(...) cast expressions that
+the tree-sitter-verilog grammar cannot parse."
+  (with-temp-buffer
+    (insert text)
+    (dolist (pattern '("=[ \t]*\\$[a-zA-Z_][a-zA-Z0-9_$]*[ \t]*("
+                       "=[ \t]*[a-zA-Z_][a-zA-Z0-9_]*'[ \t]*("))
+      (goto-char (point-min))
+      (while (re-search-forward pattern nil t)
+        (let ((match-start (match-beginning 0))
+              (depth 1)
+              done)
+          (while (and (not done) (not (eobp)))
+            (let ((c (char-after)))
+              (cond ((= c ?\() (cl-incf depth))
+                    ((= c ?\)) (cl-decf depth)
+                     (when (= depth 0) (setq done t))))
+              (unless done (forward-char 1))))
+          (when done
+            (forward-char 1)
+            (delete-region match-start (point))
+            (insert "= 0")
+            (goto-char match-start)))))
+    (buffer-string)))
+
+(defun verilog-port-copy--module-source-at-point ()
+  "Return the full source text of the module at point, module to endmodule."
+  (save-excursion
+    (let ((start (progn (re-search-backward "\\bmodule\\b" nil t) (point))))
+      (re-search-forward "\\bendmodule\\b" nil t)
+      (buffer-substring-no-properties start (point)))))
+
+(defun verilog-port-copy--extract-from-node (module-node)
+  "Return (name generic-list port-list) extracted from MODULE-NODE."
+  (list (or (treesit-node-text
+             (verilog-port-copy--ts-find module-node "module_identifier"))
+            (treesit-node-text
+             (verilog-port-copy--ts-find
+              (verilog-port-copy--ts-find module-node "module_header")
+              "simple_identifier")))
+        (verilog-port-copy--parse-generics module-node)
+        (verilog-port-copy--parse-ports module-node)))
+
 ;;;###autoload
 (defun verilog-port-copy ()
   "Copy the verilog module at point and put its definition into `vhdl-port-list`."
@@ -330,19 +374,25 @@ MODULE-NODE is a module_declaration tree-sitter node."
   (let ((module-node (verilog-port-copy--module-at-point)))
     (unless module-node
       (user-error "No Verilog module found at point"))
-    (when (string= (treesit-node-type module-node) "ERROR")
-      (user-error "Tree-sitter parse error in module at point; \
-this is likely a limitation of the tree-sitter-verilog grammar"))
-    (let* ((name (or (treesit-node-text (verilog-port-copy--ts-find module-node "module_identifier"))
-                     (treesit-node-text (verilog-port-copy--ts-find
-                                         (verilog-port-copy--ts-find module-node "module_header")
-                                         "simple_identifier"))))
-           (generic-list (verilog-port-copy--parse-generics module-node))
-           (port-list    (verilog-port-copy--parse-ports module-node)))
-      (setq vhdl-port-list (list name generic-list port-list nil)
+    (let ((result
+           (if (string= (treesit-node-type module-node) "ERROR")
+               ;; Grammar failed — preprocess to remove unsupported constructs
+               ;; (e.g. $clog2(...), cast expressions) then re-parse.
+               (let ((clean (verilog-port-copy--simplify-param-defaults
+                             (verilog-port-copy--module-source-at-point))))
+                 (with-temp-buffer
+                   (insert clean)
+                   (treesit-parser-create 'verilog)
+                   (goto-char (point-min))
+                   (let ((clean-node (verilog-port-copy--module-at-point)))
+                     (unless clean-node
+                       (user-error "Tree-sitter parse error; unable to parse module"))
+                     (verilog-port-copy--extract-from-node clean-node))))
+             (verilog-port-copy--extract-from-node module-node))))
+      (setq vhdl-port-list (append result (list nil))
             vhdl-port-reversed-direction nil
             vhdl-port-flattened nil)
-      (message "Verilog module `%s' copied" name))))
+      (message "Verilog module `%s' copied" (car result)))))
 
 ;;;###autoload
 (defun verilog-port-copy-paste-instance ()
@@ -389,4 +439,4 @@ this is likely a limitation of the tree-sitter-verilog grammar"))
 
 (provide 'verilog-port-copy)
 ;;; verilog-port-copy.el ends here
-;; LocalWords:  whitespace verilog generic-init
+;; LocalWords:  whitespace verilog
