@@ -50,6 +50,7 @@
 (require 'cl-lib)
 (require 'treesit)
 (require 'expand-region)
+(require 'subr-x)
 
 ;;------------------------------------------------------------------------------
 ;; Alignment
