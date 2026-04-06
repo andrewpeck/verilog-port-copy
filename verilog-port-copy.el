@@ -162,14 +162,10 @@ whatever information the partial tree contains."
     (name &key generic-type (generic-init "")
           generic-comment group-comment)
 
-  "Format verilog generic NAME.
+  "Format verilog generic NAME into a vhdl-port-list generic entry.
 
-    GENERIC-TYPE:
-    GENERIC-INIT:
-    GENERIC-COMMENT:
-    GROUP-COMMENT:
-
-    ((generic-names) generic-type generic-init generic-comment group-comment)"
+Return ((generic-names) GENERIC-TYPE GENERIC-INIT GENERIC-COMMENT
+GROUP-COMMENT)."
 
   (list (list name)
         generic-type
