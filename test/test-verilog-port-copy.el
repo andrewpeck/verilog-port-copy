@@ -154,6 +154,16 @@
                    (("B") nil "input" "std_logic_vector" nil "")
                    (("X") nil "output" "std_logic_vector" nil "")) nil))
 
+(port-copy-test "test/test14.v"
+                '("sample_alu"
+                  ((("OP_WIDTH") nil "" nil "\n"))
+                  ((("clk")     nil "input"  "std_logic"   nil "")
+                   (("rst_n")   nil "input"  "std_logic"   nil "")
+                   (("cmd")     nil "input"  "cmd_t"       nil "")
+                   (("payload") nil "input"  "data_word_t" nil "")
+                   (("result")  nil "output" "result_t"    nil "")
+                   (("valid")   nil "output" "std_logic"   nil "")) nil))
+
 (port-copy-test "test/test13.v"
                 '("test13"
                   ((("FVMR")                 nil "" nil "\n")

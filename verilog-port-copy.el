@@ -5,7 +5,7 @@
 ;; Author: Andrew Peck <peckandrew@gmail.com>
 ;; URL: https://github.com/andrewpeck/verilog-port-copy
 ;; Version: 0.0.1
-;; Package-Requires: ((emacs "29.1") (expand-region "0.11"))
+;; Package-Requires: ((emacs "30.1") (expand-region "0.11"))
 ;; Keywords: tools vhdl verilog
 
 ;; This file is not part of GNU Emacs.
@@ -290,7 +290,10 @@ MODULE-NODE is a module_declaration tree-sitter node."
                 (verilog-port-copy--format-port
                  (treesit-node-text name-node)
                  :port-direct dir-str
-                 :port-type (if has-dim "std_logic_vector" "std_logic")))))
+                 :port-type (or (when has-dim "std_logic_vector")
+                                (when-let* ((ti (verilog-port-copy--ts-find node "type_identifier")))
+                                  (treesit-node-text ti))
+                                "std_logic")))))
 
     (thread-last (sort (append (find-all-port-type "input")
                                (find-all-port-type "output")
@@ -310,9 +313,12 @@ MODULE-NODE is a module_declaration tree-sitter node."
                 (verilog-port-copy--format-port
                  (treesit-node-text name-node)
                  :port-direct (treesit-node-text dir-node)
-                 :port-type (if (or (verilog-port-copy--ts-find port "packed_dimension")
-                                    (verilog-port-copy--ts-find port "unpacked_dimension"))
-                                "std_logic_vector" "std_logic")))))
+                 :port-type (or (when (or (verilog-port-copy--ts-find port "packed_dimension")
+                                          (verilog-port-copy--ts-find port "unpacked_dimension"))
+                                  "std_logic_vector")
+                                (when-let* ((ti (verilog-port-copy--ts-find port "type_identifier")))
+                                  (treesit-node-text ti))
+                                "std_logic")))))
     (thread-last (verilog-port-copy--ts-find-all module-node "ansi_port_declaration")
                  (mapcar #'get-and-format-ansi-port))))
 
@@ -346,6 +352,52 @@ defaults that the tree-sitter-verilog grammar cannot parse."
             (goto-char match-start)))))
     (buffer-string)))
 
+(defun verilog-port-copy--normalize-typedef-ports (text)
+  "Normalize `var TYPE PORT' patterns in module TEXT for tree-sitter.
+The tree-sitter-verilog grammar cannot parse `input var TYPE PORT' ANSI
+port declarations: it treats TYPE as the port name and discards PORT.
+Each matching occurrence is replaced with `wire PORT' so the grammar
+can produce the correct port identifier.  The original type names are
+recorded in the returned alist for restoration after parsing.
+
+Returns a cons (NORMALIZED-TEXT . TYPE-ALIST) where TYPE-ALIST is an
+alist mapping each port name string to its user-defined type name string."
+  (let ((type-alist nil))
+    (cons
+     (with-temp-buffer
+       (insert text)
+       (goto-char (point-min))
+       (while (re-search-forward
+               (concat "\\bvar[ \t\n]+"
+                       "\\([a-zA-Z_][a-zA-Z0-9_$]*\\)[ \t\n]+"
+                       "\\([a-zA-Z_][a-zA-Z0-9_$]*\\)\\b")
+               nil t)
+         (let ((type-name (match-string 1))
+               (port-name (match-string 2)))
+           (push (cons port-name type-name) type-alist)
+           (replace-match (concat "wire " port-name) t t)))
+       (buffer-string))
+     type-alist)))
+
+(defun verilog-port-copy--apply-typedef-types (port-list type-alist)
+  "Override port types in PORT-LIST using TYPE-ALIST.
+TYPE-ALIST maps port name strings to user-defined type name strings.
+Built-in Verilog/SV type keywords are never applied as overrides."
+  (if (null type-alist)
+      port-list
+    (let ((builtins '("logic" "wire" "reg" "integer" "bit" "byte" "int"
+                      "shortint" "longint" "time" "real" "shortreal" "realtime"
+                      "tri" "tri0" "tri1" "trireg" "wand" "wor" "supply0" "supply1")))
+      (mapcar (lambda (port)
+                (when port
+                  (let* ((name (caar port))
+                         (typedef-type (cdr (assoc name type-alist))))
+                    (if (and typedef-type (not (member typedef-type builtins)))
+                        (list (car port) (cadr port) (caddr port)
+                              typedef-type (nth 4 port) (nth 5 port))
+                      port))))
+              port-list))))
+
 (defun verilog-port-copy--module-source-at-point ()
   "Return the full source text of the module at point, module to endmodule."
   (save-excursion
@@ -368,28 +420,34 @@ defaults that the tree-sitter-verilog grammar cannot parse."
 (defun verilog-port-copy ()
   "Copy the verilog module at point and put its definition into `vhdl-port-list`."
   (interactive)
-  (let ((module-node (verilog-port-copy--module-at-point)))
-    (unless module-node
-      (user-error "No Verilog module found at point"))
-    (let ((result
-           (if (string= (treesit-node-type module-node) "ERROR")
-               ;; Grammar failed — preprocess to remove unsupported constructs
-               ;; (e.g. $clog2(...), cast expressions) then re-parse.
-               (let ((clean (verilog-port-copy--simplify-param-defaults
-                             (verilog-port-copy--module-source-at-point))))
-                 (with-temp-buffer
-                   (insert clean)
-                   (treesit-parser-create 'verilog)
-                   (goto-char (point-min))
-                   (let ((clean-node (verilog-port-copy--module-at-point)))
-                     (unless clean-node
-                       (user-error "Tree-sitter parse error; unable to parse module"))
-                     (verilog-port-copy--extract-from-node clean-node))))
-             (verilog-port-copy--extract-from-node module-node))))
-      (setq vhdl-port-list (append result (list nil))
-            vhdl-port-reversed-direction nil
-            vhdl-port-flattened nil)
-      (message "Verilog module `%s' copied" (car result)))))
+  (unless (verilog-port-copy--module-at-point)
+    (user-error "No Verilog module found at point"))
+  ;; Normalize source text before re-parsing in a temp buffer:
+  ;; 1. Replace $clog2()-style parameter defaults the grammar cannot handle.
+  ;; 2. Replace `var TYPE PORT' ANSI ports (grammar misreads TYPE as port name)
+  ;;    with `wire PORT', recording the original type for post-parse restoration.
+  (let* ((source    (verilog-port-copy--module-source-at-point))
+         (norm-pair (verilog-port-copy--normalize-typedef-ports
+                     (verilog-port-copy--simplify-param-defaults source)))
+         (norm-text (car norm-pair))
+         (type-alist (cdr norm-pair))
+         (result
+          (with-temp-buffer
+            (insert norm-text)
+            (treesit-parser-create 'verilog)
+            (goto-char (point-min))
+            (let ((node (verilog-port-copy--module-at-point)))
+              (unless node
+                (user-error "Tree-sitter parse error; unable to parse module"))
+              (let ((raw (verilog-port-copy--extract-from-node node)))
+                (list (nth 0 raw)
+                      (nth 1 raw)
+                      (verilog-port-copy--apply-typedef-types
+                       (nth 2 raw) type-alist)))))))
+    (setq vhdl-port-list (append result (list nil))
+          vhdl-port-reversed-direction nil
+          vhdl-port-flattened nil)
+    (message "Verilog module `%s' copied" (car result))))
 
 ;;;###autoload
 (defun verilog-port-copy-paste-instance ()
