@@ -104,18 +104,26 @@ does not convert to
 /* some comment */"
   (interactive "P")
   (save-excursion
-    (dolist (f `(verilog-port-copy--align-paren
-                 ,(unless minimal
-                    'verilog-port-copy--strip-trailing-whitespace)
-                 ,(unless minimal
-                    'verilog-port-copy--convert-comments)
-                 verilog-port-copy--align-comment))
-      (when f
-        (beginning-of-line)
-        (er/mark-inside-pairs)
-        (let ((start (region-beginning))
-              (end (save-excursion (goto-char (region-end)) (end-of-line) (point))))
-          (deactivate-mark)
+    (beginning-of-line)
+    (er/mark-inside-pairs)
+    (let* ((raw-start (region-beginning))
+           (start (save-excursion
+                    (goto-char raw-start)
+                    (if (looking-at "//")
+                        (progn (backward-up-list) (1+ (point)))
+                      raw-start)))
+           (end   (copy-marker (save-excursion
+                                 (goto-char (region-end))
+                                 (end-of-line)
+                                 (point)))))
+      (deactivate-mark)
+      (dolist (f `(verilog-port-copy--align-paren
+                   ,(unless minimal
+                      'verilog-port-copy--strip-trailing-whitespace)
+                   ,(unless minimal
+                      'verilog-port-copy--convert-comments)
+                   verilog-port-copy--align-comment))
+        (when f
           (funcall f start end))))))
 
 ;;------------------------------------------------------------------------------
