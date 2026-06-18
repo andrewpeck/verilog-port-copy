@@ -213,14 +213,18 @@ GROUP-COMMENT)."
                      (decls (alist-get 'declarations ppl)))
            (cl-mapcan
             (lambda (decl)
-              (when (equal (alist-get 'kind decl) "ParameterDeclaration")
+              (when (and (equal (alist-get 'kind decl) "ParameterDeclaration")
+                         (not (equal (verilog-port-copy--cst-nav decl 'keyword 'text)
+                                     "localparam")))
                 (verilog-port-copy--cst-param-declarators->generics
                  (alist-get 'declarators decl))))
             decls)))
         (body
          (cl-mapcan
           (lambda (m)
-            (when (equal (alist-get 'kind m) "ParameterDeclarationStatement")
+            (when (and (equal (alist-get 'kind m) "ParameterDeclarationStatement")
+                       (not (equal (verilog-port-copy--cst-nav m 'parameter 'keyword 'text)
+                                   "localparam")))
               (verilog-port-copy--cst-param-declarators->generics
                (verilog-port-copy--cst-nav m 'parameter 'declarators))))
           mod-members)))

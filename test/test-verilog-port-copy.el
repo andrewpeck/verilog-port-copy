@@ -164,6 +164,12 @@
                    (("result")  nil "output" "result_t"    nil "")
                    (("valid")   nil "output" "std_logic"   nil "")) nil))
 
+(port-copy-test "test/test15.v"
+                '("localparam_private"
+                  ((("WIDTH") nil "" nil "\n")
+                   (("PUBLIC_BODY") nil "" nil "\n"))
+                  ((("clk") nil "input" "std_logic" nil "")) nil))
+
 (port-copy-test "test/test13.v"
                 '("test13"
                   ((("FVMR")                 nil "" nil "\n")
